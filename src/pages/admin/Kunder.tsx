@@ -412,10 +412,16 @@ const AdminKunder = ({ isStaffView = false }: AdminKunderProps = {}) => {
         .select("meter_id")
         .not("meter_id", "is", null);
 
-      // Get all assigned meter IDs (both UUID and meter_number format)
+      // Get all extra meters (ekstra målere tilknyttet bookinger)
+      const { data: extraMeters } = await (supabase as any)
+        .from("booking_extra_meters")
+        .select("meter_id");
+
+      // Get all assigned meter IDs (inkluderer både primære og ekstra målere)
       const assignedMeterIds = new Set([
         ...(seasonalData?.map((c: any) => c.meter_id) || []),
         ...(regularData?.map((c: any) => c.meter_id) || []),
+        ...(extraMeters?.map((m: any) => m.meter_id) || []),
       ]);
 
       // Filter out assigned meters - use is_online from power_meters (Z2M availability)

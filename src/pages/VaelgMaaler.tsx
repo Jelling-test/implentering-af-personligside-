@@ -115,10 +115,16 @@ const VaelgMaaler = () => {
           .eq('checked_in', true)
           .not('meter_id', 'is', null);
 
-        // Create set of assigned meter UUIDs
+        // Get all extra meters (ekstra målere tilknyttet bookinger)
+        const { data: extraMeters } = await (supabase as any)
+          .from('booking_extra_meters')
+          .select('meter_id');
+
+        // Create set of assigned meter UUIDs (inkluderer både primære og ekstra målere)
         const assignedMeterIds = new Set([
           ...(seasonalCustomers?.map(c => c.meter_id) || []),
           ...(regularCustomers?.map(c => c.meter_id) || []),
+          ...(extraMeters?.map(m => m.meter_id) || []),
         ]);
 
         // Filter meters that are online (is_online from Z2M) AND not assigned

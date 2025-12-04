@@ -125,12 +125,12 @@ const AdminMaalere = ({ isStaffView = false }: AdminMaalereProps = {}) => {
 
       if (metersError) throw metersError;
 
-      // Get all recent readings
+      // Get all recent readings - øget limit for at fange alle målere
       const { data: allReadings } = await (supabase as any)
         .from("meter_readings")
-        .select("*")
+        .select("meter_id, time, power, current, voltage, energy, state, linkquality")
         .order("time", { ascending: false })
-        .limit(1000);
+        .limit(5000);
 
       // Create map of latest reading per meter
       const latestReadingMap = new Map();
@@ -140,7 +140,7 @@ const AdminMaalere = ({ isStaffView = false }: AdminMaalereProps = {}) => {
         }
       });
 
-      // Get all assigned meters from customers
+      // Get all assigned meters from customers (primære målere)
       const { data: regularCustomers } = await (supabase as any)
         .from("regular_customers")
         .select("meter_id")
@@ -151,10 +151,16 @@ const AdminMaalere = ({ isStaffView = false }: AdminMaalereProps = {}) => {
         .select("meter_id")
         .not("meter_id", "is", null);
 
-      // Create set of assigned meter IDs
+      // Get all extra meters (ekstra målere tilknyttet bookinger)
+      const { data: extraMeters } = await (supabase as any)
+        .from("booking_extra_meters")
+        .select("meter_id");
+
+      // Create set of assigned meter IDs (inkluderer både primære og ekstra målere)
       const assignedMeterIds = new Set();
       regularCustomers?.forEach((c: any) => assignedMeterIds.add(c.meter_id));
       seasonalCustomers?.forEach((c: any) => assignedMeterIds.add(c.meter_id));
+      extraMeters?.forEach((m: any) => assignedMeterIds.add(m.meter_id));
 
       // Combine meters with their readings
       const metersWithReadings: Meter[] = (powerMeters || []).map((meter: any) => {
