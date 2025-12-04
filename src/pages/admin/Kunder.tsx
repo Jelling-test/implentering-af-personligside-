@@ -648,30 +648,30 @@ const AdminKunder = ({ isStaffView = false }: AdminKunderProps = {}) => {
     
     setTogglingExtraMeter(meterId);
     try {
-      const { data, error } = await (supabase as any).functions.invoke('toggle-power', {
-        body: {
-          booking_nummer: selectedCustomer.data.booking_nummer,
-          maaler_id: meterId,
-          action: turnOn ? 'on' : 'off'
-        }
-      });
+      const newState = turnOn ? 'ON' : 'OFF';
+      
+      // Direkte insert i meter_commands (command-processor håndterer MQTT)
+      const { error } = await supabase
+        .from('meter_commands')
+        .insert({
+          meter_id: meterId,
+          command: 'set_state',
+          value: newState,
+          status: 'pending'
+        });
 
       if (error) throw error;
-      
-      if (data && data.success === false) {
-        throw new Error(data.error || 'Fejl ved ændring af strøm');
-      }
 
       // Opdater lokalt
       setExtraMeterReadings(prev => ({
         ...prev,
         [meterId]: {
           ...prev[meterId],
-          state: turnOn ? 'ON' : 'OFF'
+          state: newState
         }
       }));
 
-      toast.success(`Måler ${meterId} er nu ${turnOn ? 'tændt' : 'slukket'}`);
+      toast.success(`Måler ${meterId} ${turnOn ? 'tændes' : 'slukkes'}...`);
     } catch (error: any) {
       console.error("Error toggling extra meter:", error);
       toast.error(error.message || "Fejl ved ændring af strøm");

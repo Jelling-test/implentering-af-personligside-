@@ -254,13 +254,15 @@ const TildelPakke = () => {
       // Turn on meter if assigned
       if (maaler) {
         try {
-          await supabase.functions.invoke('toggle-power', {
-            body: {
-              maaler_id: maaler.ref_id,
-              action: 'on',
-              booking_nummer: bookingNummer.trim(),
-            }
-          });
+          // Direkte insert i meter_commands (command-processor håndterer MQTT)
+          await supabase
+            .from('meter_commands')
+            .insert({
+              meter_id: maaler.ref_id,
+              command: 'set_state',
+              value: 'ON',
+              status: 'pending'
+            });
         } catch (powerError) {
           console.error("Error turning on power:", powerError);
           // Don't fail the whole operation if power toggle fails

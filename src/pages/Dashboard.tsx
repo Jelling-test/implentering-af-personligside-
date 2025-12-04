@@ -54,7 +54,7 @@ const Dashboard = () => {
   useEffect(() => {
     if (!guestSession?.booking_nummer) return;
 
-    // Set up real-time subscription
+    // Set up real-time subscription for pakke updates
     const channel = supabase
       .channel('dashboard-updates')
       .on(
@@ -75,6 +75,50 @@ const Dashboard = () => {
       supabase.removeChannel(channel);
     };
   }, [guestSession]);
+
+  // Realtime subscription for Power Security feedback
+  useEffect(() => {
+    if (!maaler?.meter_number) return;
+
+    const powerSecurityChannel = supabase
+      .channel('power-security-feedback')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'unauthorized_power_attempts',
+          filter: `meter_number=eq.${maaler.meter_number}`,
+        },
+        (payload: any) => {
+          console.log('Power Security event:', payload);
+          const reason = payload.new?.details?.reason || 'no_package';
+          
+          let message = 'Din måler blev slukket automatisk.';
+          if (reason === 'no_package_regular' || reason === 'no_package') {
+            message = 'Din måler blev slukket - du har ingen aktiv strømpakke. Køb venligst en pakke først.';
+          } else if (reason === 'package_expired') {
+            message = 'Din måler blev slukket - din pakke er udløbet. Køb venligst en ny pakke.';
+          } else if (reason === 'units_exhausted') {
+            message = 'Din måler blev slukket - du har opbrugt dine enheder. Køb venligst en tillægspakke.';
+          } else if (reason === 'no_customer') {
+            message = 'Din måler blev slukket - ingen kunde registreret.';
+          }
+          
+          setIsPowerOn(false);
+          toast({
+            title: "Strøm slukket automatisk",
+            description: message,
+            variant: "destructive",
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(powerSecurityChannel);
+    };
+  }, [maaler?.meter_number]);
 
   const loadDashboardData = async () => {
     try {
@@ -260,48 +304,31 @@ const Dashboard = () => {
     
     setIsTogglingPower(true);
     try {
-      // Kald toggle-power Edge Function med validering
-      const { data, error } = await (supabase as any).functions.invoke('toggle-power', {
-        body: {
-          booking_nummer: guestSession.booking_nummer,
-          maaler_id: maaler.meter_number,
-          action: turnOn ? 'on' : 'off'
-        }
-      });
+      const newState = turnOn ? 'ON' : 'OFF';
+      
+      // Direkte insert i meter_commands (Power Security håndterer validering)
+      const { error } = await supabase
+        .from('meter_commands')
+        .insert({
+          meter_id: maaler.meter_number,
+          command: 'set_state',
+          value: newState,
+          status: 'pending'
+        });
 
-      // Debug logging (kan fjernes senere)
-      console.log('Toggle power response:', { data, error });
-      console.log('Data type:', typeof data);
-      console.log('Data stringified:', JSON.stringify(data));
-      console.log('Data.success:', data?.success);
-      console.log('Data.error:', data?.error);
-      
-      // Tjek for fejl fra Edge Function
-      if (error) {
-        throw new Error(error.message || "Kunne ikke ændre strømstatus");
-      }
-      
-      // Tjek om Edge Function returnerede en fejl i body (success: false)
-      if (data && data.success === false) {
-        const errorMsg = typeof data.error === 'string' ? data.error : 'An unknown error occurred';
-        throw new Error(errorMsg);
-      }
-      
-      // Tjek om data er tomt/undefined
-      if (!data) {
-        throw new Error("Ingen response fra server");
-      }
+      if (error) throw error;
 
+      // Optimistisk opdatering - Power Security sender feedback hvis det fejler
       setIsPowerOn(turnOn);
       toast({
-        title: turnOn ? "Strøm tændt" : "Strøm slukket",
-        description: `Måler ${maaler.meter_number} er nu ${turnOn ? 'tændt' : 'slukket'}`,
+        title: turnOn ? "Tænder strøm..." : "Slukker strøm...",
+        description: `Kommando sendt til måler ${maaler.meter_number}`,
       });
     } catch (error: any) {
       console.error("Error toggling power:", error);
       toast({
-        title: turnOn ? "Kan ikke tænde strøm" : "Fejl",
-        description: error.message || "Kunne ikke ændre strømstatus",
+        title: "Fejl",
+        description: error.message || "Kunne ikke sende kommando",
         variant: "destructive",
       });
     } finally {
@@ -315,40 +342,38 @@ const Dashboard = () => {
     
     setTogglingExtraMeter(meterId);
     try {
-      const { data, error } = await (supabase as any).functions.invoke('toggle-power', {
-        body: {
-          booking_nummer: guestSession.booking_nummer,
-          maaler_id: meterId,
-          action: turnOn ? 'on' : 'off'
-        }
-      });
-
-      if (error) {
-        throw new Error(error.message || "Kunne ikke ændre strømstatus");
-      }
+      const newState = turnOn ? 'ON' : 'OFF';
       
-      if (data && data.success === false) {
-        throw new Error(data.error || 'Fejl ved ændring af strøm');
-      }
+      // Direkte insert i meter_commands (Power Security håndterer validering)
+      const { error } = await supabase
+        .from('meter_commands')
+        .insert({
+          meter_id: meterId,
+          command: 'set_state',
+          value: newState,
+          status: 'pending'
+        });
 
-      // Opdater ekstra meter readings lokalt
+      if (error) throw error;
+
+      // Opdater ekstra meter readings lokalt (optimistisk)
       setExtraMeterReadings(prev => ({
         ...prev,
         [meterId]: {
           ...prev[meterId],
-          state: turnOn ? 'ON' : 'OFF'
+          state: newState
         }
       }));
 
       toast({
-        title: turnOn ? "Strøm tændt" : "Strøm slukket",
-        description: `Måler ${meterId} er nu ${turnOn ? 'tændt' : 'slukket'}`,
+        title: turnOn ? "Tænder strøm..." : "Slukker strøm...",
+        description: `Kommando sendt til måler ${meterId}`,
       });
     } catch (error: any) {
       console.error("Error toggling extra meter:", error);
       toast({
         title: "Fejl",
-        description: error.message || "Kunne ikke ændre strømstatus",
+        description: error.message || "Kunne ikke sende kommando",
         variant: "destructive",
       });
     } finally {

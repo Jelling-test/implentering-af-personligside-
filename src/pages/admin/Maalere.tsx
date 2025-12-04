@@ -264,16 +264,21 @@ const AdminMaalere = ({ isStaffView = false }: AdminMaalereProps = {}) => {
 
   const handleTogglePower = async (meter: Meter) => {
     try {
-      const { data, error } = await supabase.functions.invoke("toggle-power", {
-        body: { 
+      const newState = meter.state === "ON" ? "OFF" : "ON";
+      
+      // Direkte insert i meter_commands (command-processor håndterer MQTT)
+      const { error } = await supabase
+        .from("meter_commands")
+        .insert({
           meter_id: meter.meter_id,
-          state: meter.state === "ON" ? "OFF" : "ON"
-        },
-      });
+          command: "set_state",
+          value: newState,
+          status: "pending"
+        });
 
       if (error) throw error;
 
-      toast.success(`Kommando sendt til ${meter.meter_id} - opdaterer automatisk...`);
+      toast.success(`Kommando sendt til ${meter.meter_id} - ${newState === "ON" ? "tænder" : "slukker"}...`);
     } catch (error) {
       console.error("Error toggling power:", error);
       toast.error("Fejl ved strøm toggle");
