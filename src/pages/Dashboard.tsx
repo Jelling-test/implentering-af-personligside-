@@ -837,7 +837,7 @@ const Dashboard = () => {
                           <p className="text-muted-foreground text-xs">Aktuelt</p>
                           <p className="font-bold flex items-center gap-1">
                             <Activity className="h-3 w-3" />
-                            {(reading.power || 0).toFixed(0)} W
+                            {Number(reading.power || 0).toFixed(0)} W
                           </p>
                         </div>
                         <div>
@@ -882,7 +882,7 @@ const Dashboard = () => {
                 <div className="flex justify-between items-center">
                   <span className="font-semibold">Samlet aktuelt forbrug</span>
                   <span className="text-2xl font-bold">
-                    {(currentPower + extraMeters.reduce((sum, e) => sum + (extraMeterReadings[e.meter_id]?.power || 0), 0)).toFixed(0)} W
+                    {(currentPower + extraMeters.reduce((sum, e) => sum + Number(extraMeterReadings[e.meter_id]?.power || 0), 0)).toFixed(0)} W
                   </span>
                 </div>
               </div>
