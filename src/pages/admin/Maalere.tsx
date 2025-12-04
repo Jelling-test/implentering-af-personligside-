@@ -103,10 +103,10 @@ const AdminMaalere = ({ isStaffView = false }: AdminMaalereProps = {}) => {
   useEffect(() => {
     fetchMeters();
     
-    // Auto-refresh every 3 seconds
+    // Auto-refresh every 10 seconds (optimeret for performance)
     const interval = setInterval(() => {
       fetchMeters();
-    }, 3000);
+    }, 10000);
     
     return () => clearInterval(interval);
   }, []);
@@ -117,40 +117,28 @@ const AdminMaalere = ({ isStaffView = false }: AdminMaalereProps = {}) => {
 
   const fetchMeters = async () => {
     try {
-      // Get all meters from power_meters table (permanent list)
-      const { data: powerMeters, error: metersError } = await (supabase as any)
-        .from("power_meters")
-        .select("*")
-        .order("meter_number", { ascending: true });
+      // Kør alle queries parallelt for hurtigere load
+      const [
+        { data: powerMeters, error: metersError },
+        { data: latestReadings },
+        { data: regularCustomers },
+        { data: seasonalCustomers },
+        { data: extraMeters }
+      ] = await Promise.all([
+        (supabase as any).from("power_meters").select("*").order("meter_number", { ascending: true }),
+        (supabase as any).from("latest_meter_readings").select("meter_id, time, power, current, voltage, energy, state, linkquality"),
+        (supabase as any).from("regular_customers").select("meter_id").not("meter_id", "is", null),
+        (supabase as any).from("seasonal_customers").select("meter_id").not("meter_id", "is", null),
+        (supabase as any).from("booking_extra_meters").select("meter_id")
+      ]);
 
       if (metersError) throw metersError;
-
-      // Get latest reading per meter via optimized database view
-      const { data: latestReadings } = await (supabase as any)
-        .from("latest_meter_readings")
-        .select("meter_id, time, power, current, voltage, energy, state, linkquality");
 
       // Create map of latest reading per meter
       const latestReadingMap = new Map();
       latestReadings?.forEach((reading: any) => {
         latestReadingMap.set(reading.meter_id, reading);
       });
-
-      // Get all assigned meters from customers (primære målere)
-      const { data: regularCustomers } = await (supabase as any)
-        .from("regular_customers")
-        .select("meter_id")
-        .not("meter_id", "is", null);
-
-      const { data: seasonalCustomers } = await (supabase as any)
-        .from("seasonal_customers")
-        .select("meter_id")
-        .not("meter_id", "is", null);
-
-      // Get all extra meters (ekstra målere tilknyttet bookinger)
-      const { data: extraMeters } = await (supabase as any)
-        .from("booking_extra_meters")
-        .select("meter_id");
 
       // Create set of assigned meter IDs (inkluderer både primære og ekstra målere)
       const assignedMeterIds = new Set();
