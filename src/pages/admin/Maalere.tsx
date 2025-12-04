@@ -125,19 +125,15 @@ const AdminMaalere = ({ isStaffView = false }: AdminMaalereProps = {}) => {
 
       if (metersError) throw metersError;
 
-      // Get all recent readings - øget limit for at fange alle målere
-      const { data: allReadings } = await (supabase as any)
-        .from("meter_readings")
-        .select("meter_id, time, power, current, voltage, energy, state, linkquality")
-        .order("time", { ascending: false })
-        .limit(5000);
+      // Get latest reading per meter via optimized database view
+      const { data: latestReadings } = await (supabase as any)
+        .from("latest_meter_readings")
+        .select("meter_id, time, power, current, voltage, energy, state, linkquality");
 
       // Create map of latest reading per meter
       const latestReadingMap = new Map();
-      allReadings?.forEach((reading: any) => {
-        if (!latestReadingMap.has(reading.meter_id)) {
-          latestReadingMap.set(reading.meter_id, reading);
-        }
+      latestReadings?.forEach((reading: any) => {
+        latestReadingMap.set(reading.meter_id, reading);
       });
 
       // Get all assigned meters from customers (primære målere)
