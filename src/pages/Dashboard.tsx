@@ -679,7 +679,9 @@ const Dashboard = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-lg">
-                            {pakke.data?.pakke_navn}
+                            {pakke.data?.varighed_timer 
+                              ? pakke.data?.pakke_navn 
+                              : `${parseFloat(pakke.data?.enheder || '0')} enheder (sæson)`}
                           </h3>
                           {!isTillægInactive && !isDagspakkeExpired && pakke.data?.status === 'aktiv' && (
                             <span className="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
