@@ -1,0 +1,210 @@
+import React, { createContext, useContext, useState, ReactNode } from 'react';
+
+export type Language = 'da' | 'en' | 'de' | 'nl';
+export type BookingType = 'camping' | 'cabin' | 'seasonal';
+
+export interface GuestData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  language: Language;
+  country: string;
+  arrivalDate: string;
+  departureDate: string;
+  checkedIn: boolean;
+  bookingType: BookingType;
+  previousVisits: number;
+  meterId: string | null;
+}
+
+interface GuestContextType {
+  guest: GuestData;
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  t: (key: string) => string;
+}
+
+const mockGuest: GuestData = {
+  firstName: "Hans",
+  lastName: "Hansen",
+  email: "hans@example.com",
+  language: "da",
+  country: "DK",
+  arrivalDate: "2025-12-10",
+  departureDate: "2025-12-17",
+  checkedIn: true,
+  bookingType: "camping",
+  previousVisits: 2,
+  meterId: null
+};
+
+const translations: Record<Language, Record<string, string>> = {
+  da: {
+    'welcome': 'Velkommen',
+    'welcomeBack': 'Velkommen tilbage',
+    'stayInfo': 'Dit ophold',
+    'arrival': 'Ankomst',
+    'departure': 'Afrejse',
+    'nightsRemaining': 'nætter tilbage',
+    'checkedIn': 'Tjekket ind',
+    'notCheckedIn': 'Ikke tjekket ind',
+    'power': 'Strøm',
+    'bakery': 'Bageri',
+    'events': 'Events',
+    'cafe': 'Café',
+    'practical': 'Praktisk info',
+    'quickActions': 'Hurtige handlinger',
+    'powerManagement': 'Strømstyring',
+    'orderBread': 'Bestil morgenbrød',
+    'eventsActivities': 'Events & aktiviteter',
+    'cafeOffers': 'Café & tilbud',
+    'practicalInfo': 'Praktisk information',
+    'back': 'Tilbage',
+    'home': 'Hjem',
+    'currentUsage': 'Nuværende forbrug',
+    'noMeter': 'Ingen elmåler tilknyttet',
+    'orderDeadline': 'Bestil inden kl. 18:00',
+    'pickupTime': 'Afhentning kl. 7:00-9:00',
+    'todaysEvents': 'Dagens events',
+    'upcomingEvents': 'Kommende events',
+    'openingHours': 'Åbningstider',
+    'menuOfTheDay': 'Dagens menu',
+    'wifiInfo': 'WiFi information',
+    'emergencyContacts': 'Nødkontakter',
+    'checkoutInfo': 'Check-out information',
+    'facilities': 'Faciliteter',
+    'cabin': 'Din hytte',
+  },
+  en: {
+    'welcome': 'Welcome',
+    'welcomeBack': 'Welcome back',
+    'stayInfo': 'Your stay',
+    'arrival': 'Arrival',
+    'departure': 'Departure',
+    'nightsRemaining': 'nights remaining',
+    'checkedIn': 'Checked in',
+    'notCheckedIn': 'Not checked in',
+    'power': 'Power',
+    'bakery': 'Bakery',
+    'events': 'Events',
+    'cafe': 'Café',
+    'practical': 'Practical info',
+    'quickActions': 'Quick actions',
+    'powerManagement': 'Power management',
+    'orderBread': 'Order bread rolls',
+    'eventsActivities': 'Events & activities',
+    'cafeOffers': 'Café & offers',
+    'practicalInfo': 'Practical information',
+    'back': 'Back',
+    'home': 'Home',
+    'currentUsage': 'Current usage',
+    'noMeter': 'No power meter connected',
+    'orderDeadline': 'Order before 6:00 PM',
+    'pickupTime': 'Pickup 7:00-9:00 AM',
+    'todaysEvents': "Today's events",
+    'upcomingEvents': 'Upcoming events',
+    'openingHours': 'Opening hours',
+    'menuOfTheDay': 'Menu of the day',
+    'wifiInfo': 'WiFi information',
+    'emergencyContacts': 'Emergency contacts',
+    'checkoutInfo': 'Check-out information',
+    'facilities': 'Facilities',
+    'cabin': 'Your cabin',
+  },
+  de: {
+    'welcome': 'Willkommen',
+    'welcomeBack': 'Willkommen zurück',
+    'stayInfo': 'Ihr Aufenthalt',
+    'arrival': 'Ankunft',
+    'departure': 'Abreise',
+    'nightsRemaining': 'Nächte verbleibend',
+    'checkedIn': 'Eingecheckt',
+    'notCheckedIn': 'Nicht eingecheckt',
+    'power': 'Strom',
+    'bakery': 'Bäckerei',
+    'events': 'Events',
+    'cafe': 'Café',
+    'practical': 'Praktische Info',
+    'quickActions': 'Schnellaktionen',
+    'powerManagement': 'Stromverwaltung',
+    'orderBread': 'Brötchen bestellen',
+    'eventsActivities': 'Events & Aktivitäten',
+    'cafeOffers': 'Café & Angebote',
+    'practicalInfo': 'Praktische Informationen',
+    'back': 'Zurück',
+    'home': 'Startseite',
+    'currentUsage': 'Aktueller Verbrauch',
+    'noMeter': 'Kein Stromzähler verbunden',
+    'orderDeadline': 'Bestellung bis 18:00 Uhr',
+    'pickupTime': 'Abholung 7:00-9:00 Uhr',
+    'todaysEvents': 'Heutige Events',
+    'upcomingEvents': 'Kommende Events',
+    'openingHours': 'Öffnungszeiten',
+    'menuOfTheDay': 'Tagesmenü',
+    'wifiInfo': 'WLAN Information',
+    'emergencyContacts': 'Notfallkontakte',
+    'checkoutInfo': 'Check-out Information',
+    'facilities': 'Einrichtungen',
+    'cabin': 'Ihre Hütte',
+  },
+  nl: {
+    'welcome': 'Welkom',
+    'welcomeBack': 'Welkom terug',
+    'stayInfo': 'Uw verblijf',
+    'arrival': 'Aankomst',
+    'departure': 'Vertrek',
+    'nightsRemaining': 'nachten over',
+    'checkedIn': 'Ingecheckt',
+    'notCheckedIn': 'Niet ingecheckt',
+    'power': 'Stroom',
+    'bakery': 'Bakkerij',
+    'events': 'Evenementen',
+    'cafe': 'Café',
+    'practical': 'Praktische info',
+    'quickActions': 'Snelle acties',
+    'powerManagement': 'Stroombeheer',
+    'orderBread': 'Broodjes bestellen',
+    'eventsActivities': 'Evenementen & activiteiten',
+    'cafeOffers': 'Café & aanbiedingen',
+    'practicalInfo': 'Praktische informatie',
+    'back': 'Terug',
+    'home': 'Home',
+    'currentUsage': 'Huidig verbruik',
+    'noMeter': 'Geen stroommeter verbonden',
+    'orderDeadline': 'Bestel voor 18:00 uur',
+    'pickupTime': 'Ophalen 7:00-9:00 uur',
+    'todaysEvents': 'Evenementen vandaag',
+    'upcomingEvents': 'Komende evenementen',
+    'openingHours': 'Openingstijden',
+    'menuOfTheDay': 'Dagmenu',
+    'wifiInfo': 'WiFi informatie',
+    'emergencyContacts': 'Noodcontacten',
+    'checkoutInfo': 'Check-out informatie',
+    'facilities': 'Faciliteiten',
+    'cabin': 'Uw hut',
+  },
+};
+
+const GuestContext = createContext<GuestContextType | undefined>(undefined);
+
+export const GuestProvider = ({ children }: { children: ReactNode }) => {
+  const [language, setLanguage] = useState<Language>(mockGuest.language);
+
+  const t = (key: string): string => {
+    return translations[language][key] || key;
+  };
+
+  return (
+    <GuestContext.Provider value={{ guest: mockGuest, language, setLanguage, t }}>
+      {children}
+    </GuestContext.Provider>
+  );
+};
+
+export const useGuest = () => {
+  const context = useContext(GuestContext);
+  if (!context) {
+    throw new Error('useGuest must be used within a GuestProvider');
+  }
+  return context;
+};

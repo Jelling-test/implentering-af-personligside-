@@ -1,0 +1,134 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@400;500;600;700&display=swap');
+
+/* Jelling Camping Design System - Nature/Camping Theme */
+
+@layer base {
+  :root {
+    /* Warm cream background */
+    --background: 40 33% 98%;
+    --foreground: 150 25% 15%;
+
+    /* Cards with subtle warmth */
+    --card: 40 30% 99%;
+    --card-foreground: 150 25% 15%;
+
+    --popover: 40 30% 99%;
+    --popover-foreground: 150 25% 15%;
+
+    /* Forest green primary */
+    --primary: 152 45% 28%;
+    --primary-foreground: 40 33% 98%;
+
+    /* Warm sand secondary */
+    --secondary: 35 30% 93%;
+    --secondary-foreground: 150 25% 20%;
+
+    /* Muted sage tones */
+    --muted: 150 15% 92%;
+    --muted-foreground: 150 10% 45%;
+
+    /* Soft accent */
+    --accent: 35 40% 90%;
+    --accent-foreground: 150 25% 20%;
+
+    /* Warm destructive */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 40 33% 98%;
+
+    /* Subtle borders */
+    --border: 150 15% 88%;
+    --input: 150 15% 88%;
+    --ring: 152 45% 28%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 150 20% 97%;
+    --sidebar-foreground: 150 25% 25%;
+    --sidebar-primary: 152 45% 28%;
+    --sidebar-primary-foreground: 40 33% 98%;
+    --sidebar-accent: 150 15% 92%;
+    --sidebar-accent-foreground: 150 25% 20%;
+    --sidebar-border: 150 15% 88%;
+    --sidebar-ring: 152 45% 40%;
+  }
+
+  .dark {
+    /* Deep forest night */
+    --background: 150 25% 8%;
+    --foreground: 40 25% 95%;
+
+    --card: 150 20% 11%;
+    --card-foreground: 40 25% 95%;
+
+    --popover: 150 20% 11%;
+    --popover-foreground: 40 25% 95%;
+
+    /* Brighter green for dark mode */
+    --primary: 152 50% 45%;
+    --primary-foreground: 150 25% 8%;
+
+    --secondary: 150 15% 18%;
+    --secondary-foreground: 40 25% 90%;
+
+    --muted: 150 15% 18%;
+    --muted-foreground: 150 10% 55%;
+
+    --accent: 150 15% 18%;
+    --accent-foreground: 40 25% 90%;
+
+    --destructive: 0 62% 40%;
+    --destructive-foreground: 40 25% 95%;
+
+    --border: 150 15% 20%;
+    --input: 150 15% 20%;
+    --ring: 152 50% 45%;
+
+    --sidebar-background: 150 20% 10%;
+    --sidebar-foreground: 40 20% 90%;
+    --sidebar-primary: 152 50% 45%;
+    --sidebar-primary-foreground: 150 25% 8%;
+    --sidebar-accent: 150 15% 15%;
+    --sidebar-accent-foreground: 40 20% 90%;
+    --sidebar-border: 150 15% 18%;
+    --sidebar-ring: 152 50% 50%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Outfit', sans-serif;
+  }
+  
+  .font-sans {
+    font-family: 'DM Sans', sans-serif;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
