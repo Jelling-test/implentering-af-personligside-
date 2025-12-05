@@ -13,7 +13,9 @@ import {
   ChevronRight,
   Sun,
   Cloud,
-  CloudRain
+  CloudRain,
+  Heart,
+  Sparkles
 } from 'lucide-react';
 
 // Billeder fra Jelling Camping stil
@@ -38,7 +40,37 @@ const GuestWelcome = () => {
   const arrivalDate = new Date(guest.arrivalDate);
   const departureDate = new Date(guest.departureDate);
   const today = new Date();
-  const nightsRemaining = Math.max(0, Math.ceil((departureDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+  
+  // Beregn antal nætter i opholdet (altid departure - arrival)
+  const totalNights = Math.max(0, Math.ceil((departureDate.getTime() - arrivalDate.getTime()) / (1000 * 60 * 60 * 24)));
+  
+  // For indtjekkede gæster: vis nætter tilbage. For kommende: vis total nætter i opholdet
+  const isCurrentlyCheckedIn = guest.checkedIn && !guest.checkedOut;
+  const nightsRemaining = isCurrentlyCheckedIn 
+    ? Math.max(0, Math.ceil((departureDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)))
+    : totalNights;
+
+  // Beregn dage til ankomst (for countdown)
+  const daysUntilArrival = Math.max(0, Math.ceil((arrivalDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)));
+
+  // Nat/nætter logik (flertal)
+  const getNightLabel = (nights: number, isRemaining: boolean) => {
+    if (language === 'da') {
+      const label = nights === 1 ? 'nat' : 'nætter';
+      return isRemaining ? `${label} tilbage` : label;
+    }
+    if (language === 'de') {
+      const label = nights === 1 ? 'Nacht' : 'Nächte';
+      return isRemaining ? `${label} übrig` : label;
+    }
+    if (language === 'nl') {
+      const label = nights === 1 ? 'nacht' : 'nachten';
+      return isRemaining ? `${label} over` : label;
+    }
+    // English
+    const label = nights === 1 ? 'night' : 'nights';
+    return isRemaining ? `${label} remaining` : label;
+  };
 
   const formatDate = (date: Date) => {
     const locale = language === 'da' ? 'da-DK' : language === 'de' ? 'de-DE' : 'en-GB';
@@ -48,6 +80,53 @@ const GuestWelcome = () => {
     });
   };
 
+  // Bestem gæstens status
+  const isNotArrived = !guest.checkedIn && !guest.checkedOut;
+  const isCheckedIn = guest.checkedIn && !guest.checkedOut;
+  const isCheckedOut = !guest.checkedIn && guest.checkedOut;
+
+  // Status-specifikke sektioner
+  const getWelcomeMessage = () => {
+    if (isNotArrived) {
+      return language === 'da' ? `Vi ser frem til din ankomst ${formatDate(arrivalDate)}` :
+             language === 'de' ? `Wir freuen uns auf Ihre Ankunft am ${formatDate(arrivalDate)}` :
+             `We look forward to your arrival on ${formatDate(arrivalDate)}`;
+    }
+    if (isCheckedIn) {
+      return guest.previousVisits > 0 ? t('welcomeBack') : t('welcome');
+    }
+    if (isCheckedOut) {
+      return language === 'da' ? 'Tak for dit ophold!' :
+             language === 'de' ? 'Vielen Dank für Ihren Aufenthalt!' :
+             'Thank you for your stay!';
+    }
+    return t('welcome');
+  };
+
+  const getStatusBadge = () => {
+    if (isNotArrived) {
+      return {
+        text: language === 'da' ? 'Ikke ankommet' : 'Not arrived',
+        className: 'bg-orange-600 hover:bg-orange-700'
+      };
+    }
+    if (isCheckedIn) {
+      return {
+        text: t('checkedIn'),
+        className: 'bg-teal-600 hover:bg-teal-700'
+      };
+    }
+    if (isCheckedOut) {
+      return {
+        text: language === 'da' ? 'Rejst' : 'Checked out',
+        className: 'bg-gray-600 hover:bg-gray-700'
+      };
+    }
+    return { text: t('notCheckedIn'), className: 'bg-gray-600' };
+  };
+
+  const statusBadge = getStatusBadge();
+
   const sections = [
     { to: '/guest/power', image: SECTION_IMAGES.power, label: t('power'), sublabel: language === 'da' ? 'Styr din strøm' : 'Manage your power' },
     { to: '/guest/bakery', image: SECTION_IMAGES.bakery, label: t('bakery'), sublabel: language === 'da' ? 'Friske morgenbrød' : 'Fresh morning bread' },
@@ -56,8 +135,8 @@ const GuestWelcome = () => {
     { to: '/guest/practical', image: SECTION_IMAGES.practical, label: t('practical'), sublabel: language === 'da' ? 'Nødvendig info' : 'Essential info' },
   ];
 
-  // Tilføj Cabin for hytte-gæster
-  if (guest.bookingType === 'cabin') {
+  // Tilføj Cabin for hytte-gæster (kun hvis de er tjekket ind)
+  if (guest.bookingType === 'cabin' && isCheckedIn) {
     sections.push({ 
       to: '/guest/cabin', 
       image: SECTION_IMAGES.cabin, 
@@ -65,6 +144,19 @@ const GuestWelcome = () => {
       sublabel: language === 'da' ? 'Info om din hytte' : 'Cabin information'
     });
   }
+
+  // Filter sektioner baseret på status
+  const getFilteredSections = () => {
+    if (isNotArrived) {
+      // Før ankomst: kun praktisk info og events
+      return sections.filter(s => ['events', 'practical'].includes(s.label.toLowerCase()));
+    }
+    if (isCheckedOut) {
+      // Efter afrejse: kun tak og praktisk info
+      return sections.filter(s => ['practical'].includes(s.label.toLowerCase()));
+    }
+    return sections; // Alle sektioner når de er tjekket ind
+  };
 
   return (
     <div className="min-h-screen bg-white">
@@ -93,15 +185,21 @@ const GuestWelcome = () => {
           {/* Gæst badge */}
           <div className="flex items-center gap-3 mb-4">
             <Badge 
-              className={`${guest.checkedIn ? 'bg-teal-600 hover:bg-teal-700' : 'bg-gray-600'} text-white border-0 text-sm px-3 py-1`}
+              className={`${statusBadge.className} text-white border-0 text-sm px-3 py-1`}
             >
               <CheckCircle2 className="h-4 w-4 mr-2" />
-              {guest.checkedIn ? t('checkedIn') : t('notCheckedIn')}
+              {statusBadge.text}
             </Badge>
+            {guest.spotNumber && isCheckedIn && (
+              <Badge className="bg-blue-600 text-white border-0 text-sm px-3 py-1">
+                <Home className="h-4 w-4 mr-2" />
+                {guest.bookingType === 'cabin' ? guest.spotNumber : `Plads ${guest.spotNumber}`}
+              </Badge>
+            )}
           </div>
 
           <p className="text-white text-xl sm:text-2xl font-light">
-            {guest.previousVisits > 0 ? t('welcomeBack') : t('welcome')}, {guest.firstName}!
+            {getWelcomeMessage()}, {guest.firstName}!
           </p>
         </div>
       </div>
@@ -122,7 +220,9 @@ const GuestWelcome = () => {
           </div>
           <div className="flex items-center gap-2 bg-white/20 px-4 py-2 rounded-full">
             <span className="text-2xl font-bold">{nightsRemaining}</span>
-            <span className="text-sm opacity-90">{t('nightsRemaining')}</span>
+            <span className="text-sm opacity-90">
+              {getNightLabel(nightsRemaining, isCurrentlyCheckedIn)}
+            </span>
           </div>
         </div>
       </div>
@@ -148,11 +248,74 @@ const GuestWelcome = () => {
         </div>
       </div>
 
+      {/* Countdown boks - kun for kommende gæster */}
+      {isNotArrived && daysUntilArrival > 0 && (
+        <div className="px-4 sm:px-6 py-6">
+          <div className="max-w-2xl mx-auto">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-50 via-orange-50 to-rose-50 border border-amber-200/50 shadow-lg">
+              {/* Dekorative elementer */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-200/30 to-transparent rounded-full -translate-y-1/2 translate-x-1/2" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-rose-200/30 to-transparent rounded-full translate-y-1/2 -translate-x-1/2" />
+              
+              <div className="relative p-6 sm:p-8 text-center">
+                <div className="flex justify-center mb-4">
+                  <div className="flex items-center gap-2 text-amber-600">
+                    <Sparkles className="h-5 w-5" />
+                    <Heart className="h-6 w-6 text-rose-500 animate-pulse" />
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                </div>
+                
+                <p className="text-lg sm:text-xl text-gray-700 font-medium mb-4">
+                  {language === 'da' ? 'Vi glæder os så meget til at se dig,' :
+                   language === 'de' ? 'Wir freuen uns so sehr, Sie zu sehen,' :
+                   language === 'nl' ? 'We kijken er zo naar uit om je te zien,' :
+                   'We are so excited to see you,'}
+                </p>
+                <p className="text-base sm:text-lg text-gray-600 mb-6">
+                  {language === 'da' ? 'at vi er begyndt at tælle dagene' :
+                   language === 'de' ? 'dass wir angefangen haben, die Tage zu zählen' :
+                   language === 'nl' ? 'dat we de dagen zijn gaan tellen' :
+                   'that we have started counting the days'}
+                </p>
+                
+                <div className="inline-flex flex-col items-center bg-white/80 backdrop-blur-sm rounded-xl px-8 py-4 shadow-inner border border-amber-100">
+                  <span className="text-5xl sm:text-6xl font-bold bg-gradient-to-r from-amber-600 to-rose-600 bg-clip-text text-transparent">
+                    {daysUntilArrival === 0 ? '🎉' : daysUntilArrival}
+                  </span>
+                  <span className="text-sm sm:text-base text-gray-600 mt-1 font-medium">
+                    {daysUntilArrival === 0 
+                      ? (language === 'da' ? 'I dag er dagen!' : 'Today is the day!')
+                      : daysUntilArrival === 1 
+                        ? (language === 'da' ? 'dag' : language === 'de' ? 'Tag' : 'day')
+                        : (language === 'da' ? 'dage' : language === 'de' ? 'Tage' : 'days')}
+                  </span>
+                </div>
+                
+                <p className="text-base sm:text-lg text-gray-600 mt-6 font-medium">
+                  {language === 'da' ? 'til du er her' :
+                   language === 'de' ? 'bis Sie hier sind' :
+                   language === 'nl' ? 'tot je hier bent' :
+                   'until you are here'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Grid sektioner - som på jellingcamping.dk */}
       <div className="p-4 sm:p-6">
         <div className="max-w-6xl mx-auto">
+          {!isCheckedOut && (
+            <h2 className="text-2xl font-serif text-gray-800 mb-6 text-center">
+              {isNotArrived ? (language === 'da' ? 'Forbered dit ophold' : 'Prepare your stay') :
+               isCheckedIn ? (language === 'da' ? 'Dit ophold' : 'Your stay') :
+               (language === 'da' ? 'Information' : 'Information')}
+            </h2>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {sections.map((section) => (
+            {getFilteredSections().map((section) => (
               <Link
                 key={section.to}
                 to={section.to}
@@ -200,14 +363,24 @@ const GuestWelcome = () => {
         <div className="absolute inset-0 bg-teal-800/80" />
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
           <h2 className="text-white text-2xl sm:text-4xl font-serif mb-4">
-            {language === 'da' ? 'Vi glæder os til at gøre dit ophold uforglemmelig' : 
-             language === 'de' ? 'Wir freuen uns, Ihren Aufenthalt unvergesslich zu machen' :
-             'We look forward to making your stay unforgettable'}
+            {isCheckedOut ? 
+              (language === 'da' ? 'Vi ses igen!' : 
+               language === 'de' ? 'Wir sehen uns wieder!' :
+               'See you again!') :
+              (language === 'da' ? 'Vi glæder os til at gøre dit ophold uforglemmelig' : 
+               language === 'de' ? 'Wir freuen uns, Ihren Aufenthalt unvergesslich zu machen' :
+               'We look forward to making your stay unforgettable')
+            }
           </h2>
           <p className="text-white/80 text-sm">
-            {language === 'da' ? 'Receptionen er åben alle dage 08.00 - 20.00' :
-             language === 'de' ? 'Rezeption geöffnet täglich 08.00 - 20.00' :
-             'Reception open daily 08.00 - 20.00'}
+            {isNotArrived ? 
+              (language === 'da' ? 'Receptionen er åben alle dage 08.00 - 20.00' :
+               language === 'de' ? 'Rezeption geöffnet täglich 08.00 - 20.00' :
+               'Reception open daily 08.00 - 20.00') :
+              (language === 'da' ? 'Receptionen er åben alle dage 08.00 - 20.00' :
+               language === 'de' ? 'Rezeption geöffnet täglich 08.00 - 20.00' :
+               'Reception open daily 08.00 - 20.00')
+            }
           </p>
         </div>
       </div>

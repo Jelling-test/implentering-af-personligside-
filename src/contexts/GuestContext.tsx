@@ -12,15 +12,18 @@ export interface GuestData {
   arrivalDate: string;
   departureDate: string;
   checkedIn: boolean;
+  checkedOut: boolean;
   bookingType: BookingType;
   previousVisits: number;
   meterId: string | null;
+  spotNumber?: string;
 }
 
 interface GuestContextType {
   guest: GuestData;
   language: Language;
   setLanguage: (lang: Language) => void;
+  setGuestData: (guestData: GuestData) => void;
   t: (key: string) => string;
 }
 
@@ -33,9 +36,11 @@ const mockGuest: GuestData = {
   arrivalDate: "2025-12-10",
   departureDate: "2025-12-17",
   checkedIn: true,
+  checkedOut: false,
   bookingType: "camping",
   previousVisits: 2,
-  meterId: null
+  meterId: null,
+  spotNumber: "A01"
 };
 
 const translations: Record<Language, Record<string, string>> = {
@@ -188,14 +193,40 @@ const translations: Record<Language, Record<string, string>> = {
 const GuestContext = createContext<GuestContextType | undefined>(undefined);
 
 export const GuestProvider = ({ children }: { children: ReactNode }) => {
-  const [language, setLanguage] = useState<Language>(mockGuest.language);
+  // Hent gemt guest data fra sessionStorage (overlever refresh)
+  const getStoredGuest = (): GuestData => {
+    try {
+      const stored = sessionStorage.getItem('guestData');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.error('Kunne ikke læse gemt gæstedata:', e);
+    }
+    return mockGuest;
+  };
+
+  const storedGuest = getStoredGuest();
+  const [language, setLanguage] = useState<Language>(storedGuest.language);
+  const [guest, setGuest] = useState<GuestData>(storedGuest);
+
+  // Gem guest data i sessionStorage når det ændres
+  const setGuestData = (newGuest: GuestData) => {
+    setGuest(newGuest);
+    setLanguage(newGuest.language);
+    try {
+      sessionStorage.setItem('guestData', JSON.stringify(newGuest));
+    } catch (e) {
+      console.error('Kunne ikke gemme gæstedata:', e);
+    }
+  };
 
   const t = (key: string): string => {
     return translations[language][key] || key;
   };
 
   return (
-    <GuestContext.Provider value={{ guest: mockGuest, language, setLanguage, t }}>
+    <GuestContext.Provider value={{ guest, language, setLanguage, setGuestData, t }}>
       {children}
     </GuestContext.Provider>
   );

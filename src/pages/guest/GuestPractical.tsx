@@ -14,8 +14,6 @@ import {
   Train,
   ShoppingBag,
   Landmark,
-  Fish,
-  Footprints,
   Bike,
   Baby,
   Pill,
@@ -38,13 +36,15 @@ const GuestPractical = () => {
 
   const emergencyContacts = [
     { name: 'Nødnummer', phone: '112', urgent: true },
-    { name: 'Lægevagt', phone: '1813', urgent: true },
-    { name: 'Reception', phone: '+45 75 87 16 53', urgent: false },
+    { name: 'Lægevagt Region Syddanmark', phone: '70 11 07 07', urgent: true },
+    { name: 'Reception', phone: '+45 8182 6300', urgent: false },
   ];
 
   const nearbyServices = [
     { icon: Pill, name: 'Jelling Apotek', distance: '1.5 km', hours: '09:00-17:30' },
-    { icon: ShoppingBag, name: 'Fakta', distance: '0.8 km', hours: '08:00-21:00' },
+    { icon: ShoppingBag, name: 'SuperBrugsen', distance: '1 km', hours: '08:00-20:00' },
+    { icon: ShoppingBag, name: 'Rema 1000', distance: '1 km', hours: '07:00-22:00' },
+    { icon: ShoppingBag, name: 'Netto', distance: '1.5 km', hours: '07:00-22:00' },
     { icon: Hospital, name: 'Vejle Sygehus', distance: '15 km', hours: '24 timer' },
   ];
 
@@ -52,7 +52,6 @@ const GuestPractical = () => {
     { icon: Landmark, name: 'Jellingstenene (UNESCO)', distance: '0.5 km', highlight: true },
     { icon: TreePine, name: 'Vandreruter', distance: 'Fra pladsen' },
     { icon: Bike, name: 'Cykelruter', distance: 'Fra pladsen' },
-    { icon: Fish, name: 'Fiskeri', distance: 'Fiskekort i reception' },
   ];
 
   const transport = [
@@ -88,10 +87,10 @@ const GuestPractical = () => {
                'Open network - no password'}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              {language === 'da' ? 'Forbind automatisk til "JellingCamping"' :
-               language === 'de' ? 'Automatisch mit "JellingCamping" verbinden' :
-               language === 'nl' ? 'Automatisch verbinden met "JellingCamping"' :
-               'Connect automatically to "JellingCamping"'}
+              {language === 'da' ? 'Forbind til "Jelling camping Free Wifi"' :
+               language === 'de' ? 'Verbinden mit "Jelling camping Free Wifi"' :
+               language === 'nl' ? 'Verbinden met "Jelling camping Free Wifi"' :
+               'Connect to "Jelling camping Free Wifi"'}
             </p>
           </div>
         </CardContent>
