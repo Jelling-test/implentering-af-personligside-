@@ -1,0 +1,9 @@
+# Supabase configuration for Jelling Guest Portal
+# Project: jkmqliztlhmfyejhmuil
+
+[project]
+id = "jkmqliztlhmfyejhmuil"
+name = "Jelling Guest Portal"
+
+[db]
+major_version = 17
