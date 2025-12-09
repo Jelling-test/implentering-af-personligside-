@@ -22,13 +22,11 @@ import { toast } from 'sonner';
 
 const HEADER_IMAGE = 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=1200&q=80';
 
-// Edge function URL - TEST projekt
-const API_URL = 'https://ljeszhbaqszgiyyrkxep.supabase.co/functions/v1/bakery-api';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxqZXN6aGJhcXN6Z2l5eXJreGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5MjY4NzIsImV4cCI6MjA4MDUwMjg3Mn0.t3QXUuOT7QAK3byOR1Ygujgdo5QyY4UAPDu1UxQnAe4';
+// Edge function URL - PRODUKTION
+const API_URL = 'https://jkmqliztlhmfyejhmuil.supabase.co/functions/v1/bakery-api';
 
 const apiHeaders = {
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${ANON_KEY}`
+  'Content-Type': 'application/json'
 };
 
 interface BakerySettings {
