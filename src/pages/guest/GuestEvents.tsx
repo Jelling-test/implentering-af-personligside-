@@ -192,22 +192,24 @@ const GuestEvents = () => {
     });
   };
 
-  const getTargetGroupLabel = (group: CampEvent['target_group']) => {
+  const getTargetGroupLabel = (group: CampEvent['target_group'] | undefined) => {
     const labels = {
       families: { da: 'Familier', en: 'Families', de: 'Familien', nl: 'Gezinnen' },
       adults: { da: 'Voksne', en: 'Adults', de: 'Erwachsene', nl: 'Volwassenen' },
       children: { da: 'Børn', en: 'Children', de: 'Kinder', nl: 'Kinderen' },
       all: { da: 'Alle', en: 'Everyone', de: 'Alle', nl: 'Iedereen' },
     };
-    return labels[group][language] || labels[group]['en'];
+    const safeGroup = group && labels[group] ? group : 'all';
+    return labels[safeGroup][language] || labels[safeGroup]['en'];
   };
 
-  const getRegistrationLabel = (place: CampEvent['registration_place']) => {
-    if (place === 'none') return null;
+  const getRegistrationLabel = (place: CampEvent['registration_place'] | undefined) => {
+    if (!place || place === 'none') return null;
     const labels = {
       reception: { da: 'Tilmeld i receptionen', en: 'Sign up at reception', de: 'Anmeldung an der Rezeption', nl: 'Aanmelden bij receptie' },
       cafe: { da: 'Tilmeld i caféen', en: 'Sign up at café', de: 'Anmeldung im Café', nl: 'Aanmelden in café' },
     };
+    if (!labels[place]) return null;
     return labels[place][language] || labels[place]['en'];
   };
 
