@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
-// TEST projekt - ljeszhbaqszgiyyrkxep (Development)
-const supabaseUrl = 'https://ljeszhbaqszgiyyrkxep.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxqZXN6aGJhcXN6Z2l5eXJreGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5MjY4NzIsImV4cCI6MjA4MDUwMjg3Mn0.t3QXUuOT7QAK3byOR1Ygujgdo5QyY4UAPDu1UxQnAe4'
+// PRODUKTION projekt - jkmqliztlhmfyejhmuil
+const supabaseUrl = 'https://jkmqliztlhmfyejhmuil.supabase.co'
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImprbXFsaXp0bGhtZnllamhtdWlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzI1MTYzODUsImV4cCI6MjA0ODA5MjM4NX0.w7PhLhQXqB_m4vEMpq7VsU78tUY8WqXxqCJKTuABv6k'
 
 console.log('🔌 Supabase URL:', supabaseUrl)
 
