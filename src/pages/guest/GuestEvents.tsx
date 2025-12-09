@@ -104,6 +104,7 @@ const GuestEvents = () => {
     const fetchEvents = async () => {
       try {
         const { start, end } = getDateRange();
+        console.log('📅 Fetching events from', start, 'to', end);
         
         // Hent interne events
         const { data: internalData, error: internalError } = await supabase
@@ -113,6 +114,7 @@ const GuestEvents = () => {
           .lte('event_date', end)
           .order('event_date', { ascending: true });
 
+        console.log('🏕️ Camp events:', internalData?.length || 0, 'found', internalError ? 'ERROR:' + internalError.message : '');
         if (internalError) throw internalError;
 
         // Hent eksterne events (max 50 km)
