@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useGuest } from '@/contexts/GuestContext';
+import { supabase } from '@/lib/supabase';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +12,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Clock, UtensilsCrossed, Wine, Phone, Mail, ShoppingBag, PartyPopper, AlertCircle, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
-const API_URL = 'https://ljeszhbaqszgiyyrkxep.supabase.co/functions/v1/bakery-api';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxqZXN6aGJhcXN6Z2l5eXJreGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5MjY4NzIsImV4cCI6MjA4MDUwMjg3Mn0.t3QXUuOT7QAK3byOR1Ygujgdo5QyY4UAPDu1UxQnAe4';
 const HEADER_IMAGE = 'https://images.unsplash.com/photo-1554118811-1e0d58224f54?w=1200&q=80';
 
 interface OpeningHours {
@@ -20,31 +19,32 @@ interface OpeningHours {
 }
 
 interface MenuItem {
-  id: number;
+  id: string;
   category: 'food' | 'drinks';
-  name_da: string;
-  name_en: string;
-  name_de: string;
-  description_da: string;
+  name: string;
+  name_en?: string;
+  name_de?: string;
+  description?: string;
+  description_en?: string;
+  description_de?: string;
   price: number;
-  image_url: string;
-  active: boolean;
+  image_url?: string;
+  is_active: boolean;
 }
 
 interface Offer {
-  id: number;
-  ref_id: string;
-  name_da: string;
-  name_en: string;
-  name_de: string;
-  description_da: string;
-  description_en: string;
-  description_de: string;
+  id: string;
+  name: string;
+  name_en?: string;
+  name_de?: string;
+  description?: string;
+  description_en?: string;
+  description_de?: string;
   price: number;
-  image_url: string;
-  visible_from: string;
-  visible_to: string;
-  active: boolean;
+  image_url?: string;
+  visible_from?: string;
+  visible_to?: string;
+  is_active: boolean;
 }
 
 interface PartyBox {
@@ -61,28 +61,30 @@ interface PartyBox {
 
 interface CafeSettings {
   opening_hours: OpeningHours;
-  header_image: string;
-  reopening_date: string;
-  contact_phone: string;
-  contact_email: string;
-  contact_text_da: string;
-  contact_text_en: string;
-  contact_text_de: string;
-  party_boxes: PartyBox[];
+  header_image?: string;
+  reopening_date?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  contact_text?: string;
+  contact_text_en?: string;
+  contact_text_de?: string;
+  party_boxes?: PartyBox[];
 }
 
 // Rækkefølge for dage (starter med mandag)
 const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 interface CafeOrder {
-  id: number;
-  ref_id: string;
+  id: string;
   order_number: string;
-  offer_id: string;
-  offer_name: string;
+  booking_id?: number;
+  guest_name: string;
+  guest_phone?: string;
+  offer_id?: string;
+  offer_name?: string;
   quantity: number;
-  dining_option: string;
-  execution_date: string;
+  dining_option?: string;
+  execution_date?: string;
   total: number;
   status: string;
   created_at: string;
@@ -117,32 +119,45 @@ const GuestCafe = () => {
 
   const fetchData = async () => {
     try {
-      const headers = { 'Authorization': `Bearer ${ANON_KEY}` };
+      // Hent settings fra Supabase
+      const { data: settingsData } = await supabase
+        .from('cafe_settings')
+        .select('*')
+        .eq('id', 'default')
+        .single();
       
-      const [settingsRes, menuRes, offersRes, ordersRes] = await Promise.all([
-        fetch(`${API_URL}?action=cafe-get-settings`, { headers }),
-        fetch(`${API_URL}?action=cafe-get-menu`, { headers }),
-        fetch(`${API_URL}?action=cafe-get-offers&active=true`, { headers }),
-        fetch(`${API_URL}?action=cafe-get-orders&booking_id=${guest.bookingId}`, { headers }),
-      ]);
+      if (settingsData) setSettings(settingsData);
 
-      const [settingsData, menuData, offersData, ordersData] = await Promise.all([
-        settingsRes.json(),
-        menuRes.json(),
-        offersRes.json(),
-        ordersRes.json(),
-      ]);
+      // Hent menu items
+      const { data: menuData } = await supabase
+        .from('cafe_menu_items')
+        .select('*')
+        .eq('is_active', true)
+        .order('category')
+        .order('sort_order');
+      
+      if (menuData) setMenuItems(menuData);
 
-      if (settingsData.success) setSettings(settingsData.settings);
-      if (menuData.success) setMenuItems(menuData.items.filter((i: MenuItem) => i.active));
-      if (offersData.success) setOffers(offersData.offers);
-      if (ordersData.success) {
+      // Hent aktive tilbud
+      const { data: offersData } = await supabase
+        .from('cafe_offers')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+      
+      if (offersData) setOffers(offersData);
+
+      // Hent ordrer for denne booking
+      const { data: ordersData } = await supabase
+        .from('cafe_orders')
+        .select('*')
+        .eq('booking_id', guest.bookingId)
+        .neq('status', 'cancelled')
+        .order('created_at', { ascending: false });
+      
+      if (ordersData) {
         const now = new Date();
-        // Filtrer: Kun aktive ordrer der ikke er udløbet
-        const activeOrders = ordersData.orders.filter((o: CafeOrder) => {
-          // Fjern afbestilte
-          if (o.status === 'cancelled') return false;
-          // Fjern udløbne (execution_date er passeret)
+        const activeOrders = ordersData.filter((o: CafeOrder) => {
           if (o.execution_date) {
             const execDate = new Date(o.execution_date);
             if (execDate < now) return false;
@@ -158,10 +173,28 @@ const GuestCafe = () => {
     }
   };
 
-  const getText = (da: string, en: string, de: string) => {
-    if (language === 'de') return de;
-    if (language === 'en') return en;
-    return da;
+  const getText = (da?: string, en?: string, de?: string) => {
+    if (language === 'de' && de) return de;
+    if (language === 'en' && en) return en;
+    return da || '';
+  };
+  
+  const getMenuText = (item: MenuItem) => {
+    if (language === 'de' && item.name_de) return item.name_de;
+    if (language === 'en' && item.name_en) return item.name_en;
+    return item.name;
+  };
+  
+  const getOfferText = (offer: Offer) => {
+    if (language === 'de' && offer.name_de) return offer.name_de;
+    if (language === 'en' && offer.name_en) return offer.name_en;
+    return offer.name;
+  };
+  
+  const getOfferDesc = (offer: Offer) => {
+    if (language === 'de' && offer.description_de) return offer.description_de;
+    if (language === 'en' && offer.description_en) return offer.description_en;
+    return offer.description || '';
   };
 
   const getTodayStatus = () => {
@@ -208,32 +241,33 @@ const GuestCafe = () => {
     if (!selectedOffer) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}?action=cafe-create-order`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ANON_KEY}` },
-        body: JSON.stringify({
-          booking_nummer: guest.bookingId,
+      const orderNumber = `C${Date.now().toString().slice(-8)}`;
+      
+      const { error } = await supabase
+        .from('cafe_orders')
+        .insert({
+          order_number: orderNumber,
+          booking_id: guest.bookingId,
           guest_name: `${guest.firstName} ${guest.lastName}`,
-          guest_phone: guest.phone || '',
-          offer_id: selectedOffer.ref_id,
-          offer_name: getText(selectedOffer.name_da, selectedOffer.name_en, selectedOffer.name_de),
+          guest_phone: guest.phone || null,
+          offer_id: selectedOffer.id,
+          offer_name: getOfferText(selectedOffer),
           quantity,
           dining_option: diningOption,
-          execution_date: selectedOffer.visible_to,
-          price: selectedOffer.price,
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast.success(getText('Bestilling oprettet!', 'Order placed!', 'Bestellung aufgegeben!'));
-        setOrderDialogOpen(false);
-        setSelectedOffer(null);
-        setQuantity(1);
-        fetchData();
-      } else {
-        toast.error(data.error || 'Fejl');
-      }
-    } catch {
+          execution_date: selectedOffer.visible_to ? new Date(selectedOffer.visible_to).toISOString().split('T')[0] : null,
+          total: selectedOffer.price * quantity,
+          status: 'pending'
+        });
+      
+      if (error) throw error;
+      
+      toast.success(getText('Bestilling oprettet!', 'Order placed!', 'Bestellung aufgegeben!'));
+      setOrderDialogOpen(false);
+      setSelectedOffer(null);
+      setQuantity(1);
+      fetchData();
+    } catch (err) {
+      console.error('Order error:', err);
       toast.error('Fejl ved bestilling');
     } finally {
       setSubmitting(false);
@@ -243,21 +277,15 @@ const GuestCafe = () => {
   const handleCancelOrder = async (order: CafeOrder) => {
     if (!confirm(getText('Vil du annullere denne bestilling?', 'Cancel this order?', 'Diese Bestellung stornieren?'))) return;
     try {
-      console.log('Cancelling order:', order.ref_id, 'booking:', guest.bookingId);
-      const res = await fetch(`${API_URL}?action=cafe-cancel-order`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ANON_KEY}` },
-        body: JSON.stringify({ order_id: order.ref_id, booking_nummer: guest.bookingId })
-      });
-      const data = await res.json();
-      console.log('Cancel response:', data);
-      if (data.success) {
-        toast.success(getText('Bestilling annulleret', 'Order cancelled', 'Bestellung storniert'));
-        // Fjern ordren fra listen med det samme
-        setMyOrders(prev => prev.filter(o => o.ref_id !== order.ref_id));
-      } else {
-        toast.error(data.error || 'Kunne ikke afbestille');
-      }
+      const { error } = await supabase
+        .from('cafe_orders')
+        .update({ status: 'cancelled' })
+        .eq('id', order.id);
+      
+      if (error) throw error;
+      
+      toast.success(getText('Bestilling annulleret', 'Order cancelled', 'Bestellung storniert'));
+      setMyOrders(prev => prev.filter(o => o.id !== order.id));
     } catch (err) {
       console.error('Cancel error:', err);
       toast.error('Fejl ved afbestilling');
@@ -265,10 +293,8 @@ const GuestCafe = () => {
   };
 
   const canCancelOrder = (order: CafeOrder) => {
-    // Find tilbuddet via offer_id - brug visible_to som deadline
-    const offer = offers.find(o => o.ref_id === order.offer_id);
-    if (!offer?.visible_to) return true;
-    return new Date() < new Date(offer.visible_to);
+    // Kan altid afbestille pending ordrer
+    return order.status === 'pending';
   };
 
   const todayStatus = getTodayStatus();
@@ -355,8 +381,8 @@ const GuestCafe = () => {
                     <CardContent className="p-4 flex-1">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="font-semibold">{getText(offer.name_da, offer.name_en, offer.name_de)}</h3>
-                          <p className="text-sm text-gray-600">{getText(offer.description_da, offer.description_en, offer.description_de)}</p>
+                          <h3 className="font-semibold">{getOfferText(offer)}</h3>
+                          <p className="text-sm text-gray-600">{getOfferDesc(offer)}</p>
                           <p className="text-xs text-gray-400 mt-1">
                             {getText('Deadline', 'Deadline', 'Frist')}: {offer.visible_to ? new Date(offer.visible_to).toLocaleString('da-DK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}
                           </p>
@@ -378,7 +404,7 @@ const GuestCafe = () => {
                                 <DialogTitle>{getText('Bestil tilbud', 'Order offer', 'Angebot bestellen')}</DialogTitle>
                               </DialogHeader>
                               <div className="space-y-4 mt-4">
-                                <p className="font-medium">{getText(offer.name_da, offer.name_en, offer.name_de)}</p>
+                                <p className="font-medium">{getOfferText(offer)}</p>
                                 <p className="text-sm text-gray-500">{offer.price} kr {getText('pr. stk', 'each', 'pro Stück')}</p>
                                 
                                 <div>
@@ -473,7 +499,7 @@ const GuestCafe = () => {
                       <div key={item.id} className="flex items-center justify-between p-4">
                         <div className="flex items-center gap-3">
                           {item.image_url && <img src={item.image_url} alt="" className="w-12 h-12 rounded object-cover" />}
-                          <span className="font-medium">{getText(item.name_da, item.name_en, item.name_de)}</span>
+                          <span className="font-medium">{getMenuText(item)}</span>
                         </div>
                         <span className="font-semibold text-teal-600">{item.price} kr</span>
                       </div>
@@ -496,7 +522,7 @@ const GuestCafe = () => {
                       <div key={item.id} className="flex items-center justify-between p-4">
                         <div className="flex items-center gap-3">
                           {item.image_url && <img src={item.image_url} alt="" className="w-12 h-12 rounded object-cover" />}
-                          <span className="font-medium">{getText(item.name_da, item.name_en, item.name_de)}</span>
+                          <span className="font-medium">{getMenuText(item)}</span>
                         </div>
                         <span className="font-semibold text-purple-600">{item.price} kr</span>
                       </div>
@@ -549,7 +575,7 @@ const GuestCafe = () => {
                 </a>
               )}
               <p className="text-sm text-gray-600 mt-2">
-                {getText(settings.contact_text_da, settings.contact_text_en, settings.contact_text_de)}
+                {getText(settings.contact_text, settings.contact_text_en, settings.contact_text_de)}
               </p>
             </CardContent>
           </Card>
