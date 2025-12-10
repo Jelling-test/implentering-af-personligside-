@@ -166,8 +166,8 @@ const GuestWelcome = () => {
     { to: '/guest/playground', image: sectionImages.playground, label: language === 'da' ? 'Legeplads' : language === 'de' ? 'Spielplatz' : 'Playground', sublabel: language === 'da' ? 'Sjov for hele familien' : 'Fun for the whole family' },
   ];
 
-  // Tilføj Cabin for hytte-gæster (kun hvis de er tjekket ind)
-  if (guest.bookingType === 'cabin' && isCheckedIn) {
+  // Tilføj Cabin for hytte-gæster (uanset check-in status)
+  if (guest.bookingType === 'cabin') {
     sections.push({ 
       to: '/guest/cabin', 
       image: sectionImages.cabin, 
@@ -176,17 +176,10 @@ const GuestWelcome = () => {
     });
   }
 
-  // Filter sektioner baseret på status
+  // Alle sektioner vises altid - restriktioner håndteres på undersiderne
+  // (Strøm, Bageri, Café har deres egne check-in restriktioner)
   const getFilteredSections = () => {
-    if (isNotArrived) {
-      // Før ankomst: events, attraktioner og praktisk info
-      return sections.filter(s => ['events', 'attraktioner', 'attractions', 'attracties', 'attraktionen', 'practical', 'praktisk info', 'praktische info'].includes(s.label.toLowerCase()));
-    }
-    if (isCheckedOut) {
-      // Efter afrejse: kun tak og praktisk info
-      return sections.filter(s => ['practical', 'praktisk info', 'praktische info'].includes(s.label.toLowerCase()));
-    }
-    return sections; // Alle sektioner når de er tjekket ind
+    return sections;
   };
 
   return (
