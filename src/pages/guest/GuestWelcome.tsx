@@ -19,8 +19,9 @@ import {
   Sparkles,
   MapPin
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
-// Edge function URL
+// Edge function URL (for billeder)
 const API_URL = 'https://ljeszhbaqszgiyyrkxep.supabase.co/functions/v1/bakery-api';
 const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxqZXN6aGJhcXN6Z2l5eXJreGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5MjY4NzIsImV4cCI6MjA4MDUwMjg3Mn0.t3QXUuOT7QAK3byOR1Ygujgdo5QyY4UAPDu1UxQnAe4';
 
@@ -46,6 +47,46 @@ const DEFAULT_SECTION_IMAGES = {
 
 const GuestWelcome = () => {
   const [sectionImages, setSectionImages] = useState(DEFAULT_SECTION_IMAGES);
+  const { guest, t, language, setGuestData } = useGuest();
+
+  // Refresh gæstedata fra database ved page load
+  useEffect(() => {
+    const refreshGuestData = async () => {
+      if (!guest.bookingId) return;
+      
+      try {
+        // Prøv regular_customers først
+        let { data, error } = await supabase
+          .from('regular_customers')
+          .select('*')
+          .eq('booking_id', guest.bookingId)
+          .single();
+        
+        // Hvis ikke fundet, prøv seasonal_customers
+        if (error || !data) {
+          const seasonalResult = await supabase
+            .from('seasonal_customers')
+            .select('*')
+            .eq('booking_id', guest.bookingId)
+            .single();
+          data = seasonalResult.data;
+        }
+        
+        if (data) {
+          // Opdater kun check-in status uden at overskrive alt
+          setGuestData({
+            ...guest,
+            checkedIn: data.checked_in ?? guest.checkedIn,
+            checkedOut: data.checked_out ?? guest.checkedOut,
+          });
+        }
+      } catch (error) {
+        console.error('Error refreshing guest data:', error);
+      }
+    };
+    
+    refreshGuestData();
+  }, [guest.bookingId]);
 
   useEffect(() => {
     const fetchImages = async () => {
@@ -63,7 +104,6 @@ const GuestWelcome = () => {
     };
     fetchImages();
   }, []);
-  const { guest, t, language } = useGuest();
 
   const arrivalDate = new Date(guest.arrivalDate);
   const departureDate = new Date(guest.departureDate);
