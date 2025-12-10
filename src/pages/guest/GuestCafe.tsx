@@ -392,7 +392,54 @@ const GuestCafe = () => {
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-lg text-rose-600">{offer.price} kr</p>
-                          {guest.checkedIn ? (
+                          {(() => {
+                            // Tjek om deadline er efter gæstens udtjekning
+                            const offerDeadline = offer.visible_to ? new Date(offer.visible_to) : null;
+                            const guestDeparture = guest.departureDate ? new Date(guest.departureDate) : null;
+                            const deadlineAfterCheckout = offerDeadline && guestDeparture && offerDeadline > guestDeparture;
+                            
+                            if (deadlineAfterCheckout) {
+                              return (
+                                <div className="mt-2 text-left">
+                                  <Button size="sm" disabled className="opacity-50 cursor-not-allowed">
+                                    <Lock className="h-3 w-3 mr-1" />
+                                    {getText('Bestil', 'Order', 'Bestellen')}
+                                  </Button>
+                                  <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                                    <p className="font-medium">
+                                      {getText(
+                                        'Din planlagte udtjekning ligger før du kan afhente tilbuddet.',
+                                        'Your planned checkout is before you can pick up the offer.',
+                                        'Ihr geplanter Checkout liegt vor dem Abholtermin.'
+                                      )}
+                                    </p>
+                                    <p className="mt-1">
+                                      {getText(
+                                        'Kontakt caféen for en manuel bestilling, eller kontakt receptionen for en forlængelse af din booking.',
+                                        'Contact the café for a manual order, or contact reception to extend your booking.',
+                                        'Kontaktieren Sie das Café für eine manuelle Bestellung, oder die Rezeption für eine Buchungsverlängerung.'
+                                      )}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            
+                            if (!guest.checkedIn) {
+                              return (
+                                <div className="mt-2">
+                                  <Button size="sm" disabled className="opacity-50 cursor-not-allowed">
+                                    <Lock className="h-3 w-3 mr-1" />
+                                    {getText('Bestil', 'Order', 'Bestellen')}
+                                  </Button>
+                                  <p className="text-xs text-amber-600 mt-1">
+                                    {getText('Tilgængelig efter check-in', 'Available after check-in', 'Nach Check-in verfügbar')}
+                                  </p>
+                                </div>
+                              );
+                            }
+                            
+                            return (
                             <Dialog open={orderDialogOpen && selectedOffer?.id === offer.id} onOpenChange={(open) => {
                               setOrderDialogOpen(open);
                               if (open) setSelectedOffer(offer);
@@ -439,17 +486,8 @@ const GuestCafe = () => {
                               </div>
                             </DialogContent>
                           </Dialog>
-                          ) : (
-                            <div className="mt-2">
-                              <Button size="sm" disabled className="opacity-50 cursor-not-allowed">
-                                <Lock className="h-3 w-3 mr-1" />
-                                {getText('Bestil', 'Order', 'Bestellen')}
-                              </Button>
-                              <p className="text-xs text-amber-600 mt-1">
-                                {getText('Tilgængelig efter check-in', 'Available after check-in', 'Nach Check-in verfügbar')}
-                              </p>
-                            </div>
-                          )}
+                            );
+                          })()}
                         </div>
                       </div>
                     </CardContent>
