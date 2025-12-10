@@ -15,15 +15,13 @@ import {
   Bed,
   Bath,
   ClipboardList,
-  X
+  Loader2
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { supabase } from '@/lib/supabase';
 
-const HEADER_IMAGE = 'https://ljeszhbaqszgiyyrkxep.supabase.co/storage/v1/object/public/playground-images/hytten.png';
-
-const API_URL = 'https://ljeszhbaqszgiyyrkxep.supabase.co/functions/v1/bakery-api';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxqZXN6aGJhcXN6Z2l5eXJreGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5MjY4NzIsImV4cCI6MjA4MDUwMjg3Mn0.t3QXUuOT7QAK3byOR1Ygujgdo5QyY4UAPDu1UxQnAe4';
+const HEADER_IMAGE = 'https://jkmqliztlhmfyejhmuil.supabase.co/storage/v1/object/public/images/hytten.png';
 
 interface ChecklistItem {
   id: string;
@@ -99,24 +97,40 @@ const DEFAULT_SETTINGS: CabinSettings = {
 const GuestCabin = () => {
   const { guest, language } = useGuest();
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
-  const [settings, setSettings] = useState<CabinSettings>(DEFAULT_SETTINGS);
+  const [settings, setSettings] = useState<CabinSettings | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch(`${API_URL}?action=get-facility-settings&facility=cabin`, {
-          headers: { 'Authorization': `Bearer ${ANON_KEY}` }
-        });
-        const data = await res.json();
-        if (data.success && data.settings && Object.keys(data.settings).length > 0) {
-          setSettings({ ...DEFAULT_SETTINGS, ...data.settings });
-        }
+        const { data, error } = await supabase
+          .from('cabin_settings')
+          .select('*')
+          .single();
+        
+        if (error) throw error;
+        setSettings(data);
       } catch (error) {
         console.error('Error fetching cabin settings:', error);
+        setSettings(DEFAULT_SETTINGS);
+      } finally {
+        setLoading(false);
       }
     };
     fetchSettings();
   }, []);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  // Brug default settings hvis ikke hentet
+  const s = settings || DEFAULT_SETTINGS;
 
   // Kun vis for hytte-gæster
   if (guest.bookingType !== 'cabin') {
@@ -171,7 +185,7 @@ const GuestCabin = () => {
   // Beregn antal baseret på hyttestørrelse
   const getInventoryQuantity = (item: InventoryItem) => {
     const cabinNumber = guest.spotNumber || '';
-    const is6Person = settings.cabin_6_persons?.includes(cabinNumber);
+    const is6Person = s.cabin_6_persons?.includes(cabinNumber);
     return is6Person ? item.quantity_6 : item.quantity_4;
   };
 
@@ -190,7 +204,7 @@ const GuestCabin = () => {
   };
 
   // Kombiner departure og cleaning items til total tjekliste
-  const allTasks = [...settings.departure_items, ...settings.cleaning_items];
+  const allTasks = [...s.departure_items, ...s.cleaning_items];
   const completedTasks = Object.values(checklist).filter(Boolean).length;
   const allDone = completedTasks === allTasks.length;
 
@@ -205,14 +219,14 @@ const GuestCabin = () => {
       <div className="max-w-2xl mx-auto p-6 space-y-6">
 
       {/* INFO SEKTIONER */}
-      {settings.info_sections && settings.info_sections.length > 0 && (
+      {s.info_sections && s.info_sections.length > 0 && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-lg">
               {language === 'da' ? 'Hvad er i hytten' : language === 'de' ? 'Was ist in der Hütte' : "What's in the cabin"}
             </h2>
             {/* Inventar knap */}
-            {settings.inventory && settings.inventory.length > 0 && (
+            {s.inventory && s.inventory.length > 0 && (
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm" className="gap-2">
@@ -227,7 +241,7 @@ const GuestCabin = () => {
                     </DialogTitle>
                   </DialogHeader>
                   <div className="space-y-1 mt-4">
-                    {settings.inventory.map((item) => (
+                    {s.inventory.map((item) => (
                       <div key={item.id} className="flex items-center gap-2 py-1 border-b border-gray-100">
                         <span className="font-medium text-teal-700 w-8">{getInventoryQuantity(item)}×</span>
                         <span>{getInventoryName(item)}</span>
@@ -239,7 +253,7 @@ const GuestCabin = () => {
             )}
           </div>
           <div className="space-y-3">
-            {settings.info_sections
+            {s.info_sections
               .filter((section) => {
                 // Vis sektionen hvis den er for alle hytter
                 if (section.cabin_numbers === 'all') return true;
@@ -279,7 +293,7 @@ const GuestCabin = () => {
         </div>
         <Card className="border-green-200 bg-green-50">
           <CardContent className="p-4 space-y-3">
-            {settings.arrival_items.map((item, i) => (
+            {s.arrival_items.map((item, i) => (
               <div key={item.id} className="flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 text-green-600 mt-1 shrink-0" />
                 <p className="text-sm text-green-800">{getText(item)}</p>
@@ -304,7 +318,7 @@ const GuestCabin = () => {
         </p>
         <Card className="border-amber-200">
           <CardContent className="p-0 divide-y divide-amber-100">
-            {settings.departure_items.map((item) => (
+            {s.departure_items.map((item) => (
               <label 
                 key={item.id}
                 className="flex items-center gap-3 p-4 cursor-pointer hover:bg-amber-50 transition-colors"
@@ -336,9 +350,9 @@ const GuestCabin = () => {
         <Card className="border-teal-200 bg-teal-50 mb-3">
           <CardContent className="p-4">
             <p className="text-sm text-teal-800">
-              {language === 'da' ? `Slutrengøring kan tilkøbes for ${settings.cleaning_price},-` : 
-               language === 'de' ? `Endreinigung kann für ${settings.cleaning_price},- DKK zugebucht werden` :
-               `Final cleaning can be purchased for ${settings.cleaning_price},-`}
+              {language === 'da' ? `Slutrengøring kan tilkøbes for ${s.cleaning_price},-` : 
+               language === 'de' ? `Endreinigung kann für ${s.cleaning_price},- DKK zugebucht werden` :
+               `Final cleaning can be purchased for ${s.cleaning_price},-`}
             </p>
           </CardContent>
         </Card>
@@ -349,7 +363,7 @@ const GuestCabin = () => {
         </p>
         <Card className="border-red-200">
           <CardContent className="p-0 divide-y divide-red-100">
-            {settings.cleaning_items.map((item) => (
+            {s.cleaning_items.map((item) => (
               <label 
                 key={item.id}
                 className="flex items-center gap-3 p-4 cursor-pointer hover:bg-red-50 transition-colors"
@@ -400,9 +414,9 @@ const GuestCabin = () => {
                  'Contact reception immediately'}
               </p>
               <Button variant="outline" size="sm" className="gap-2" asChild>
-                <a href={`tel:${settings.phone.replace(/\s/g, '')}`}>
+                <a href={`tel:${s.phone.replace(/\s/g, '')}`}>
                   <Phone className="h-4 w-4" />
-                  {settings.phone}
+                  {s.phone}
                 </a>
               </Button>
             </div>
