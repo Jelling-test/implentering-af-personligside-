@@ -1227,8 +1227,8 @@ const GuestPower = () => {
                 <CardContent className="p-4">
                   <div className="flex justify-between items-center">
                     <div>
-                      <span className="text-3xl font-light text-teal-600">{meter.usedEnheder}</span>
-                      <span className="text-gray-500 ml-1 text-sm">enheder {language === 'da' ? 'brugt' : 'used'}</span>
+                      <span className="text-3xl font-light text-teal-600">{(meter.usedEnheder || 0).toFixed(2)}</span>
+                      <span className="text-gray-500 ml-1 text-sm">{language === 'da' ? `enheder brugt på måler ${meter.name}` : `units used on meter ${meter.name}`}</span>
                     </div>
                     <p className="text-xs text-gray-400">ID: {meter.id}</p>
                   </div>
