@@ -15,11 +15,30 @@ import {
   Sun,
   Cloud,
   CloudRain,
+  CloudSnow,
+  CloudFog,
   Heart,
   Sparkles,
-  MapPin
+  MapPin,
+  Loader2
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+
+// Jelling koordinater for Yr.no API
+const JELLING_LAT = 55.7553;
+const JELLING_LON = 9.4197;
+
+// Vejr interface
+interface WeatherData {
+  today: {
+    temp: number;
+    symbol: string;
+  };
+  tomorrow: {
+    temp: number;
+    symbol: string;
+  };
+}
 
 // Billeder fra Jelling Camping stil
 const HERO_IMAGES = [
@@ -41,9 +60,76 @@ const DEFAULT_SECTION_IMAGES = {
   playground: 'https://images.unsplash.com/photo-1564429238535-29e0fb41b04e?w=800&q=80', // Legeplads
 };
 
+// Hjælpefunktion til at mappe Yr.no symbol til Lucide ikon
+const getWeatherIcon = (symbol: string) => {
+  if (symbol.includes('snow')) return CloudSnow;
+  if (symbol.includes('rain') || symbol.includes('sleet')) return CloudRain;
+  if (symbol.includes('fog')) return CloudFog;
+  if (symbol.includes('cloud') || symbol.includes('overcast')) return Cloud;
+  return Sun; // clearsky, fair
+};
+
 const GuestWelcome = () => {
   const [sectionImages, setSectionImages] = useState(DEFAULT_SECTION_IMAGES);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
   const { guest, t, language, setGuestData } = useGuest();
+
+  // Hent vejrdata fra Yr.no (Met Norway API)
+  useEffect(() => {
+    const fetchWeather = async () => {
+      try {
+        const response = await fetch(
+          `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${JELLING_LAT}&lon=${JELLING_LON}`,
+          {
+            headers: {
+              'User-Agent': 'JellingCampingGuestPortal/1.0 github.com/jelling-camping'
+            }
+          }
+        );
+        
+        if (!response.ok) throw new Error('Weather fetch failed');
+        
+        const data = await response.json();
+        const timeseries = data.properties.timeseries;
+        
+        // Find i dag (nærmeste tidspunkt)
+        const now = new Date();
+        const todayData = timeseries[0];
+        
+        // Find i morgen (ca. 24 timer frem)
+        const tomorrowTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const tomorrowData = timeseries.find((t: any) => {
+          const time = new Date(t.time);
+          return time >= tomorrowTime;
+        }) || timeseries[Math.min(24, timeseries.length - 1)];
+        
+        setWeather({
+          today: {
+            temp: Math.round(todayData.data.instant.details.air_temperature),
+            symbol: todayData.data.next_1_hours?.summary?.symbol_code || 
+                    todayData.data.next_6_hours?.summary?.symbol_code || 'cloudy'
+          },
+          tomorrow: {
+            temp: Math.round(tomorrowData.data.instant.details.air_temperature),
+            symbol: tomorrowData.data.next_1_hours?.summary?.symbol_code || 
+                    tomorrowData.data.next_6_hours?.summary?.symbol_code || 'cloudy'
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching weather:', error);
+        // Fallback til default
+        setWeather({
+          today: { temp: 5, symbol: 'cloudy' },
+          tomorrow: { temp: 3, symbol: 'rain' }
+        });
+      } finally {
+        setWeatherLoading(false);
+      }
+    };
+    
+    fetchWeather();
+  }, []);
 
   // Refresh gæstedata fra database ved page load (kun én gang)
   const [hasRefreshed, setHasRefreshed] = useState(false);
@@ -317,24 +403,43 @@ const GuestWelcome = () => {
         </div>
       </div>
 
-      {/* Vejr sektion */}
+      {/* Vejr sektion - data fra Yr.no (Met Norway) */}
       <div className="bg-gray-50 py-4 px-6">
         <div className="max-w-4xl mx-auto flex justify-center gap-8">
-          <div className="flex items-center gap-3">
-            <Cloud className="h-8 w-8 text-gray-500" />
-            <div>
-              <p className="text-xs text-gray-500 uppercase">{language === 'da' ? 'I dag' : 'Today'}</p>
-              <p className="text-lg font-semibold text-gray-800">5°C</p>
+          {weatherLoading ? (
+            <div className="flex items-center gap-2 text-gray-500">
+              <Loader2 className="h-5 w-5 animate-spin" />
+              <span className="text-sm">{language === 'da' ? 'Henter vejr...' : 'Loading weather...'}</span>
             </div>
-          </div>
-          <div className="w-px bg-gray-300" />
-          <div className="flex items-center gap-3">
-            <CloudRain className="h-8 w-8 text-blue-500" />
-            <div>
-              <p className="text-xs text-gray-500 uppercase">{language === 'da' ? 'I morgen' : 'Tomorrow'}</p>
-              <p className="text-lg font-semibold text-gray-800">3°C</p>
-            </div>
-          </div>
+          ) : weather ? (
+            <>
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const TodayIcon = getWeatherIcon(weather.today.symbol);
+                  return <TodayIcon className="h-8 w-8 text-gray-500" />;
+                })()}
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">
+                    {language === 'da' ? 'I dag' : language === 'de' ? 'Heute' : 'Today'}
+                  </p>
+                  <p className="text-lg font-semibold text-gray-800">{weather.today.temp}°C</p>
+                </div>
+              </div>
+              <div className="w-px bg-gray-300" />
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const TomorrowIcon = getWeatherIcon(weather.tomorrow.symbol);
+                  return <TomorrowIcon className="h-8 w-8 text-blue-500" />;
+                })()}
+                <div>
+                  <p className="text-xs text-gray-500 uppercase">
+                    {language === 'da' ? 'I morgen' : language === 'de' ? 'Morgen' : 'Tomorrow'}
+                  </p>
+                  <p className="text-lg font-semibold text-gray-800">{weather.tomorrow.temp}°C</p>
+                </div>
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
 
