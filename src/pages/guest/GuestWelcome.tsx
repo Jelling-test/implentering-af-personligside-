@@ -21,9 +21,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-// PROD Supabase Storage base URL
-const STORAGE_URL = 'https://jkmqliztlhmfyejhmuil.supabase.co/storage/v1/object/public';
-
 // Billeder fra Jelling Camping stil
 const HERO_IMAGES = [
   'https://images.unsplash.com/photo-1523987355523-c7b5b0dd90a7?w=1600&q=80', // Familie camping
@@ -31,7 +28,7 @@ const HERO_IMAGES = [
   'https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?w=1600&q=80', // Campingvogn
 ];
 
-// Default billeder - PROD storage
+// Default billeder - fallback til Unsplash
 const DEFAULT_SECTION_IMAGES = {
   power: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
   bakery: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&q=80',
@@ -39,9 +36,9 @@ const DEFAULT_SECTION_IMAGES = {
   attractions: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&q=80',
   cafe: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&q=80',
   practical: 'https://images.unsplash.com/photo-1571863533956-01c88e79957e?w=800&q=80',
-  cabin: `${STORAGE_URL}/images/hytten.png`,
-  pool: `${STORAGE_URL}/images/friluftsbad.png`,
-  playground: `${STORAGE_URL}/images/legeplads.jpg`,
+  cabin: 'https://images.unsplash.com/photo-1449158743715-0a90ebb6d2d8?w=800&q=80', // Hytte
+  pool: 'https://images.unsplash.com/photo-1575429198097-0414ec08e8cd?w=800&q=80', // Friluftsbad
+  playground: 'https://images.unsplash.com/photo-1564429238535-29e0fb41b04e?w=800&q=80', // Legeplads
 };
 
 const GuestWelcome = () => {
