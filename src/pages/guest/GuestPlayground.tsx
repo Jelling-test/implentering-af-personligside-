@@ -2,50 +2,61 @@ import { useState, useEffect } from 'react';
 import { useGuest } from '@/contexts/GuestContext';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, MapPin, Baby, TreePine, Car, Flag } from 'lucide-react';
+import { Clock, MapPin, Baby, TreePine, Car, Flag, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
-// Billeder fra Supabase Storage
-const STORAGE_URL = 'https://ljeszhbaqszgiyyrkxep.supabase.co/storage/v1/object/public/playground-images';
-const HEADER_IMAGE = `${STORAGE_URL}/IMG_7740.jpg`;
-
-// Edge function URL
-const API_URL = 'https://ljeszhbaqszgiyyrkxep.supabase.co/functions/v1/bakery-api';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxqZXN6aGJhcXN6Z2l5eXJreGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5MjY4NzIsImV4cCI6MjA4MDUwMjg3Mn0.t3QXUuOT7QAK3byOR1Ygujgdo5QyY4UAPDu1UxQnAe4';
+const DEFAULT_HEADER = 'https://images.unsplash.com/photo-1587578932405-7c740a762f7f?w=1200&q=80';
 
 interface PlaygroundSettings {
-  dinocar_title?: string;
-  dinocar_text_da?: string;
-  dinocar_text_en?: string;
-  dinocar_text_de?: string;
-  hoppepude_title?: string;
-  hoppepude_text_da?: string;
-  hoppepude_text_en?: string;
-  hoppepude_text_de?: string;
-  minigolf_title?: string;
-  minigolf_text_da?: string;
-  minigolf_text_en?: string;
-  minigolf_text_de?: string;
-  open_text_da?: string;
-  open_text_en?: string;
-  open_text_de?: string;
+  header_image: string | null;
+  open_title_da: string;
+  open_title_en: string;
+  open_title_de: string;
+  open_text_da: string;
+  open_text_en: string;
+  open_text_de: string;
+  dinocar_title: string;
+  dinocar_image: string | null;
+  dinocar_text_da: string;
+  dinocar_text_en: string;
+  dinocar_text_de: string;
+  hoppepude_title: string;
+  hoppepude_image: string | null;
+  hoppepude_text_da: string;
+  hoppepude_text_en: string;
+  hoppepude_text_de: string;
+  minigolf_title: string;
+  minigolf_image: string | null;
+  minigolf_text_da: string;
+  minigolf_text_en: string;
+  minigolf_text_de: string;
+  facilities_da: string;
+  facilities_en: string;
+  facilities_de: string;
+  location_text_da: string;
+  location_text_en: string;
+  location_text_de: string;
 }
 
 const GuestPlayground = () => {
   const { language } = useGuest();
-  const [settings, setSettings] = useState<PlaygroundSettings>({});
+  const [settings, setSettings] = useState<PlaygroundSettings | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await fetch(`${API_URL}?action=get-facility-settings&facility=playground`, {
-          headers: { 'Authorization': `Bearer ${ANON_KEY}` }
-        });
-        const data = await res.json();
-        if (data.success && data.settings) {
-          setSettings(data.settings);
-        }
+        const { data, error } = await supabase
+          .from('playground_settings')
+          .select('*')
+          .single();
+        
+        if (error) throw error;
+        setSettings(data);
       } catch (error) {
         console.error('Error fetching playground settings:', error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchSettings();
@@ -57,12 +68,26 @@ const GuestPlayground = () => {
     return da;
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!settings) {
+    return <div className="p-6 text-center text-gray-500">Kunne ikke indlæse data</div>;
+  }
+
+  const facilities = getText(settings.facilities_da, settings.facilities_en, settings.facilities_de).split(',');
+
   return (
     <div className="bg-white min-h-screen">
       <PageHeader 
         title={getText('Legeplads', 'Playground', 'Spielplatz')}
         subtitle={getText('Sjov for hele familien', 'Fun for the whole family', 'Spaß für die ganze Familie')}
-        image={HEADER_IMAGE}
+        image={settings.header_image || DEFAULT_HEADER}
       />
 
       <div className="max-w-4xl mx-auto p-6 space-y-6">
@@ -76,14 +101,10 @@ const GuestPlayground = () => {
               </div>
               <div>
                 <h3 className="font-semibold text-green-800 mb-2">
-                  {getText('Altid åben', 'Always open', 'Immer geöffnet')}
+                  {getText(settings.open_title_da, settings.open_title_en, settings.open_title_de)}
                 </h3>
                 <p className="text-green-700">
-                  {getText(
-                    settings.open_text_da || 'Legepladsen er åben døgnet rundt for alle campingens gæster.',
-                    settings.open_text_en || 'The playground is open 24 hours for all campsite guests.',
-                    settings.open_text_de || 'Der Spielplatz ist rund um die Uhr für alle Campingplatzgäste geöffnet.'
-                  )}
+                  {getText(settings.open_text_da, settings.open_text_en, settings.open_text_de)}
                 </p>
               </div>
             </div>
@@ -93,26 +114,18 @@ const GuestPlayground = () => {
         {/* Dino Cars */}
         <Card className="border-red-200 overflow-hidden">
           <div className="grid md:grid-cols-2">
-            <img 
-              src={`${STORAGE_URL}/dinocar.jpg`}
-              alt="Dino Cars"
-              className="w-full h-48 md:h-full object-cover"
-            />
+            {settings.dinocar_image && (
+              <img src={settings.dinocar_image} alt="Dino Cars" className="w-full h-48 md:h-full object-cover" />
+            )}
             <CardContent className="p-6 bg-red-50 flex flex-col justify-center">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-red-100 rounded-full">
                   <Car className="h-5 w-5 text-red-700" />
                 </div>
-                <h3 className="font-semibold text-red-800 text-lg">
-                  {settings.dinocar_title || 'Dino Cars'}
-                </h3>
+                <h3 className="font-semibold text-red-800 text-lg">{settings.dinocar_title}</h3>
               </div>
               <p className="text-red-700">
-                {getText(
-                  settings.dinocar_text_da || 'Vi har sjove Dino Cars som børnene kan køre rundt på pladsen. Spørg i receptionen!',
-                  settings.dinocar_text_en || 'We have fun Dino Cars that children can drive around the campsite. Ask at reception!',
-                  settings.dinocar_text_de || 'Wir haben lustige Dino Cars, mit denen Kinder auf dem Campingplatz fahren können. Fragen Sie an der Rezeption!'
-                )}
+                {getText(settings.dinocar_text_da, settings.dinocar_text_en, settings.dinocar_text_de)}
               </p>
             </CardContent>
           </div>
@@ -121,26 +134,18 @@ const GuestPlayground = () => {
         {/* Hoppepude */}
         <Card className="border-blue-200 overflow-hidden">
           <div className="grid md:grid-cols-2">
-            <img 
-              src={`${STORAGE_URL}/hoppepude.png`}
-              alt="Hoppepude"
-              className="w-full h-48 md:h-full object-cover"
-            />
+            {settings.hoppepude_image && (
+              <img src={settings.hoppepude_image} alt="Hoppepude" className="w-full h-48 md:h-full object-cover" />
+            )}
             <CardContent className="p-6 bg-blue-50 flex flex-col justify-center">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-blue-100 rounded-full">
                   <Baby className="h-5 w-5 text-blue-700" />
                 </div>
-                <h3 className="font-semibold text-blue-800 text-lg">
-                  {settings.hoppepude_title || getText('Hoppepude', 'Jumping Pillow', 'Hüpfkissen')}
-                </h3>
+                <h3 className="font-semibold text-blue-800 text-lg">{settings.hoppepude_title}</h3>
               </div>
               <p className="text-blue-700">
-                {getText(
-                  settings.hoppepude_text_da || 'Vores store hoppepude er et hit hos børnene. Perfekt til at brænde energi af!',
-                  settings.hoppepude_text_en || 'Our large jumping pillow is a hit with the kids. Perfect for burning off energy!',
-                  settings.hoppepude_text_de || 'Unser großes Hüpfkissen ist ein Hit bei den Kindern. Perfekt um Energie abzubauen!'
-                )}
+                {getText(settings.hoppepude_text_da, settings.hoppepude_text_en, settings.hoppepude_text_de)}
               </p>
             </CardContent>
           </div>
@@ -149,26 +154,18 @@ const GuestPlayground = () => {
         {/* Minigolf */}
         <Card className="border-green-200 overflow-hidden">
           <div className="grid md:grid-cols-2">
-            <img 
-              src={`${STORAGE_URL}/minigolf.jpg`}
-              alt="Minigolf"
-              className="w-full h-48 md:h-full object-cover"
-            />
+            {settings.minigolf_image && (
+              <img src={settings.minigolf_image} alt="Minigolf" className="w-full h-48 md:h-full object-cover" />
+            )}
             <CardContent className="p-6 bg-green-50 flex flex-col justify-center">
               <div className="flex items-center gap-3 mb-3">
                 <div className="p-2 bg-green-100 rounded-full">
                   <Flag className="h-5 w-5 text-green-700" />
                 </div>
-                <h3 className="font-semibold text-green-800 text-lg">
-                  {settings.minigolf_title || getText('Minigolf', 'Mini Golf', 'Minigolf')}
-                </h3>
+                <h3 className="font-semibold text-green-800 text-lg">{settings.minigolf_title}</h3>
               </div>
               <p className="text-green-700">
-                {getText(
-                  settings.minigolf_text_da || 'Prøv vores 18-hullers minigolfbane. Køller og bolde kan lånes i receptionen.',
-                  settings.minigolf_text_en || 'Try our 18-hole mini golf course. Clubs and balls can be borrowed at reception.',
-                  settings.minigolf_text_de || 'Probieren Sie unseren 18-Loch-Minigolfplatz. Schläger und Bälle können an der Rezeption ausgeliehen werden.'
-                )}
+                {getText(settings.minigolf_text_da, settings.minigolf_text_en, settings.minigolf_text_de)}
               </p>
             </CardContent>
           </div>
@@ -184,26 +181,12 @@ const GuestPlayground = () => {
           </CardHeader>
           <CardContent>
             <ul className="grid grid-cols-2 gap-3 text-gray-600">
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                {getText('Gynger', 'Swings', 'Schaukeln')}
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                {getText('Rutsjebane', 'Slide', 'Rutsche')}
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                {getText('Klatrestativ', 'Climbing frame', 'Klettergerüst')}
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                {getText('Sandkasse', 'Sandbox', 'Sandkasten')}
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                {getText('Vippe', 'Seesaw', 'Wippe')}
-              </li>
+              {facilities.map((facility, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <span className="text-green-500">✓</span>
+                  {facility.trim()}
+                </li>
+              ))}
             </ul>
           </CardContent>
         </Card>
@@ -218,11 +201,7 @@ const GuestPlayground = () => {
           </CardHeader>
           <CardContent>
             <p className="text-gray-600">
-              {getText(
-                'Legepladsen ligger centralt på campingpladsen ved servicebygningen.',
-                'The playground is centrally located on the campsite near the service building.',
-                'Der Spielplatz befindet sich zentral auf dem Campingplatz in der Nähe des Servicegebäudes.'
-              )}
+              {getText(settings.location_text_da, settings.location_text_en, settings.location_text_de)}
             </p>
           </CardContent>
         </Card>
