@@ -11,11 +11,8 @@ import {
   Trash2, 
   Dog,
   MapPin,
-  TreePine,
   Train,
   ShoppingBag,
-  Landmark,
-  Bike,
   Baby,
   Pill,
   Hospital,
@@ -28,7 +25,7 @@ const DEFAULT_HEADER = 'https://images.unsplash.com/photo-1571863533956-01c88e79
 
 // Icon mapping
 const iconMap: Record<string, any> = {
-  Pill, ShoppingBag, Hospital, Landmark, TreePine, Bike, Droplets, Trash2, Car, Dog, Baby, MapPin, Phone, Wifi
+  Pill, ShoppingBag, Hospital, Droplets, Trash2, Car, Dog, Baby, MapPin, Phone, Wifi
 };
 
 interface PracticalInfo {
@@ -57,14 +54,6 @@ interface NearbyService {
   hours: string;
 }
 
-interface Attraction {
-  id: string;
-  name: string;
-  icon: string;
-  distance: string;
-  is_highlight: boolean;
-}
-
 interface Transport {
   id: string;
   name: string;
@@ -84,7 +73,6 @@ const GuestPractical = () => {
   const [info, setInfo] = useState<PracticalInfo | null>(null);
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
   const [services, setServices] = useState<NearbyService[]>([]);
-  const [attractions, setAttractions] = useState<Attraction[]>([]);
   const [transport, setTransport] = useState<Transport[]>([]);
   const [facilities, setFacilities] = useState<Facility[]>([]);
 
@@ -94,11 +82,10 @@ const GuestPractical = () => {
 
   const fetchData = async () => {
     try {
-      const [infoRes, contactsRes, servicesRes, attractionsRes, transportRes, facilitiesRes] = await Promise.all([
+      const [infoRes, contactsRes, servicesRes, transportRes, facilitiesRes] = await Promise.all([
         supabase.from('practical_info').select('*').single(),
         supabase.from('practical_emergency_contacts').select('*').eq('is_active', true).order('sort_order'),
         supabase.from('practical_nearby_services').select('*').eq('is_active', true).order('sort_order'),
-        supabase.from('practical_attractions').select('*').eq('is_active', true).order('sort_order'),
         supabase.from('practical_transport').select('*').eq('is_active', true).order('sort_order'),
         supabase.from('practical_facilities').select('*').eq('is_active', true).order('sort_order'),
       ]);
@@ -106,7 +93,6 @@ const GuestPractical = () => {
       if (infoRes.data) setInfo(infoRes.data);
       if (contactsRes.data) setContacts(contactsRes.data);
       if (servicesRes.data) setServices(servicesRes.data);
-      if (attractionsRes.data) setAttractions(attractionsRes.data);
       if (transportRes.data) setTransport(transportRes.data);
       if (facilitiesRes.data) setFacilities(facilitiesRes.data);
     } catch (error) {
@@ -216,34 +202,6 @@ const GuestPractical = () => {
                 })}
               </CardContent>
             </Card>
-          </section>
-        )}
-
-        {/* Nature & Attractions */}
-        {attractions.length > 0 && (
-          <section className="space-y-3">
-            <h2 className="font-semibold text-lg flex items-center gap-2">
-              <TreePine className="h-5 w-5 text-green-600" />
-              {language === 'da' ? 'Natur & Oplevelser' : language === 'de' ? 'Natur & Erlebnisse' : language === 'nl' ? 'Natuur & Bezienswaardigheden' : 'Nature & Attractions'}
-            </h2>
-            <div className="grid gap-3">
-              {attractions.map((attr) => {
-                const IconComponent = getIcon(attr.icon);
-                return (
-                  <Card key={attr.id} className={attr.is_highlight ? 'border-amber-500/50 bg-amber-500/5' : ''}>
-                    <CardContent className="p-4 flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-lg flex items-center justify-center ${attr.is_highlight ? 'bg-amber-500/20' : 'bg-primary/10'}`}>
-                        <IconComponent className={`h-5 w-5 ${attr.is_highlight ? 'text-amber-600' : 'text-primary'}`} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{attr.name}</p>
-                      </div>
-                      <span className="text-sm text-muted-foreground">{attr.distance}</span>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
           </section>
         )}
 
