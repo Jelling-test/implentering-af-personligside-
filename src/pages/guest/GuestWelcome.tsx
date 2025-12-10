@@ -184,27 +184,31 @@ const GuestWelcome = () => {
     refreshGuestData();
   }, [guest.bookingId, hasRefreshed]);
 
-  // Hent dynamiske billeder fra settings tabeller
+  // Hent dashboard billeder fra database
   useEffect(() => {
     const fetchImages = async () => {
       try {
-        // Hent pool billede
-        const { data: poolData } = await supabase
-          .from('pool_settings')
-          .select('header_image')
+        const { data, error } = await supabase
+          .from('dashboard_settings')
+          .select('*')
+          .eq('id', 'default')
           .single();
         
-        // Hent playground billede
-        const { data: playgroundData } = await supabase
-          .from('playground_settings')
-          .select('header_image')
-          .single();
+        if (error) throw error;
         
-        setSectionImages(prev => ({
-          ...prev,
-          pool: poolData?.header_image || prev.pool,
-          playground: playgroundData?.header_image || prev.playground,
-        }));
+        if (data) {
+          setSectionImages({
+            power: data.power_image || DEFAULT_SECTION_IMAGES.power,
+            bakery: data.bakery_image || DEFAULT_SECTION_IMAGES.bakery,
+            events: data.events_image || DEFAULT_SECTION_IMAGES.events,
+            attractions: data.attractions_image || DEFAULT_SECTION_IMAGES.attractions,
+            cafe: data.cafe_image || DEFAULT_SECTION_IMAGES.cafe,
+            practical: data.practical_image || DEFAULT_SECTION_IMAGES.practical,
+            pool: data.pool_image || DEFAULT_SECTION_IMAGES.pool,
+            playground: data.playground_image || DEFAULT_SECTION_IMAGES.playground,
+            cabin: data.cabin_image || DEFAULT_SECTION_IMAGES.cabin,
+          });
+        }
       } catch (error) {
         console.error('Error fetching dashboard images:', error);
       }
