@@ -45,16 +45,18 @@ const GuestWelcome = () => {
   const [sectionImages, setSectionImages] = useState(DEFAULT_SECTION_IMAGES);
   const { guest, t, language, setGuestData } = useGuest();
 
-  // Refresh gæstedata fra database ved page load
+  // Refresh gæstedata fra database ved page load (kun én gang)
+  const [hasRefreshed, setHasRefreshed] = useState(false);
+  
   useEffect(() => {
+    if (hasRefreshed || !guest.bookingId) return;
+    
     const refreshGuestData = async () => {
-      if (!guest.bookingId) return;
-      
       try {
         // Prøv regular_customers først
         let { data, error } = await supabase
           .from('regular_customers')
-          .select('*')
+          .select('checked_in, checked_out')
           .eq('booking_id', guest.bookingId)
           .single();
         
@@ -62,27 +64,34 @@ const GuestWelcome = () => {
         if (error || !data) {
           const seasonalResult = await supabase
             .from('seasonal_customers')
-            .select('*')
+            .select('checked_in, checked_out')
             .eq('booking_id', guest.bookingId)
             .single();
           data = seasonalResult.data;
         }
         
         if (data) {
-          // Opdater kun check-in status uden at overskrive alt
-          setGuestData({
-            ...guest,
-            checkedIn: data.checked_in ?? guest.checkedIn,
-            checkedOut: data.checked_out ?? guest.checkedOut,
-          });
+          const newCheckedIn = data.checked_in ?? false;
+          const newCheckedOut = data.checked_out ?? false;
+          
+          // Kun opdater hvis status har ændret sig
+          if (newCheckedIn !== guest.checkedIn || newCheckedOut !== guest.checkedOut) {
+            setGuestData({
+              ...guest,
+              checkedIn: newCheckedIn,
+              checkedOut: newCheckedOut,
+            });
+          }
         }
+        setHasRefreshed(true);
       } catch (error) {
         console.error('Error refreshing guest data:', error);
+        setHasRefreshed(true);
       }
     };
     
     refreshGuestData();
-  }, [guest.bookingId]);
+  }, [guest.bookingId, hasRefreshed]);
 
   // Hent dynamiske billeder fra settings tabeller
   useEffect(() => {
