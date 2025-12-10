@@ -21,9 +21,8 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
-// Edge function URL (for billeder)
-const API_URL = 'https://ljeszhbaqszgiyyrkxep.supabase.co/functions/v1/bakery-api';
-const ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxqZXN6aGJhcXN6Z2l5eXJreGVwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5MjY4NzIsImV4cCI6MjA4MDUwMjg3Mn0.t3QXUuOT7QAK3byOR1Ygujgdo5QyY4UAPDu1UxQnAe4';
+// PROD Supabase Storage base URL
+const STORAGE_URL = 'https://jkmqliztlhmfyejhmuil.supabase.co/storage/v1/object/public';
 
 // Billeder fra Jelling Camping stil
 const HERO_IMAGES = [
@@ -32,7 +31,7 @@ const HERO_IMAGES = [
   'https://images.unsplash.com/photo-1478131143081-80f7f84ca84d?w=1600&q=80', // Campingvogn
 ];
 
-// Default billeder - bruges som fallback
+// Default billeder - PROD storage
 const DEFAULT_SECTION_IMAGES = {
   power: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800&q=80',
   bakery: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=800&q=80',
@@ -40,9 +39,9 @@ const DEFAULT_SECTION_IMAGES = {
   attractions: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&q=80',
   cafe: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&q=80',
   practical: 'https://images.unsplash.com/photo-1571863533956-01c88e79957e?w=800&q=80',
-  cabin: 'https://ljeszhbaqszgiyyrkxep.supabase.co/storage/v1/object/public/playground-images/hytten.png',
-  pool: 'https://ljeszhbaqszgiyyrkxep.supabase.co/storage/v1/object/public/playground-images/friluftsbad.png',
-  playground: 'https://ljeszhbaqszgiyyrkxep.supabase.co/storage/v1/object/public/playground-images/IMG_7740.jpg',
+  cabin: `${STORAGE_URL}/images/hytten.png`,
+  pool: `${STORAGE_URL}/images/friluftsbad.png`,
+  playground: `${STORAGE_URL}/images/legeplads.jpg`,
 };
 
 const GuestWelcome = () => {
@@ -88,16 +87,27 @@ const GuestWelcome = () => {
     refreshGuestData();
   }, [guest.bookingId]);
 
+  // Hent dynamiske billeder fra settings tabeller
   useEffect(() => {
     const fetchImages = async () => {
       try {
-        const res = await fetch(`${API_URL}?action=get-dashboard-images`, {
-          headers: { 'Authorization': `Bearer ${ANON_KEY}` }
-        });
-        const data = await res.json();
-        if (data.success && data.images) {
-          setSectionImages(prev => ({ ...prev, ...data.images }));
-        }
+        // Hent pool billede
+        const { data: poolData } = await supabase
+          .from('pool_settings')
+          .select('header_image')
+          .single();
+        
+        // Hent playground billede
+        const { data: playgroundData } = await supabase
+          .from('playground_settings')
+          .select('header_image')
+          .single();
+        
+        setSectionImages(prev => ({
+          ...prev,
+          pool: poolData?.header_image || prev.pool,
+          playground: playgroundData?.header_image || prev.playground,
+        }));
       } catch (error) {
         console.error('Error fetching dashboard images:', error);
       }
