@@ -29,15 +29,14 @@ const JELLING_LAT = 55.7553;
 const JELLING_LON = 9.4197;
 
 // Vejr interface
+interface WeatherDay {
+  temp: number;
+  symbol: string;
+  label: string;
+}
+
 interface WeatherData {
-  today: {
-    temp: number;
-    symbol: string;
-  };
-  tomorrow: {
-    temp: number;
-    symbol: string;
-  };
+  days: WeatherDay[];
 }
 
 // Billeder fra Jelling Camping stil
@@ -75,7 +74,7 @@ const GuestWelcome = () => {
   const [weatherLoading, setWeatherLoading] = useState(true);
   const { guest, t, language, setGuestData } = useGuest();
 
-  // Hent vejrdata fra Yr.no (Met Norway API)
+  // Hent vejrdata fra Yr.no (Met Norway API) - 4 dage
   useEffect(() => {
     const fetchWeather = async () => {
       try {
@@ -93,35 +92,41 @@ const GuestWelcome = () => {
         const data = await response.json();
         const timeseries = data.properties.timeseries;
         
-        // Find i dag (nærmeste tidspunkt)
         const now = new Date();
-        const todayData = timeseries[0];
+        const days: WeatherDay[] = [];
         
-        // Find i morgen (ca. 24 timer frem)
-        const tomorrowTime = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        const tomorrowData = timeseries.find((t: any) => {
-          const time = new Date(t.time);
-          return time >= tomorrowTime;
-        }) || timeseries[Math.min(24, timeseries.length - 1)];
+        // Dag labels baseret på sprog (håndteres i render)
+        const dayLabels = ['today', 'tomorrow', 'day2', 'day3'];
         
-        setWeather({
-          today: {
-            temp: Math.round(todayData.data.instant.details.air_temperature),
-            symbol: todayData.data.next_1_hours?.summary?.symbol_code || 
-                    todayData.data.next_6_hours?.summary?.symbol_code || 'cloudy'
-          },
-          tomorrow: {
-            temp: Math.round(tomorrowData.data.instant.details.air_temperature),
-            symbol: tomorrowData.data.next_1_hours?.summary?.symbol_code || 
-                    tomorrowData.data.next_6_hours?.summary?.symbol_code || 'cloudy'
-          }
-        });
+        for (let i = 0; i < 4; i++) {
+          const targetTime = new Date(now.getTime() + i * 24 * 60 * 60 * 1000);
+          // Find middag (kl 12) for bedste repræsentation
+          targetTime.setHours(12, 0, 0, 0);
+          
+          const dayData = timeseries.find((t: any) => {
+            const time = new Date(t.time);
+            return time >= targetTime;
+          }) || timeseries[Math.min(i * 24, timeseries.length - 1)];
+          
+          days.push({
+            temp: Math.round(dayData.data.instant.details.air_temperature),
+            symbol: dayData.data.next_1_hours?.summary?.symbol_code || 
+                    dayData.data.next_6_hours?.summary?.symbol_code || 'cloudy',
+            label: dayLabels[i]
+          });
+        }
+        
+        setWeather({ days });
       } catch (error) {
         console.error('Error fetching weather:', error);
         // Fallback til default
         setWeather({
-          today: { temp: 5, symbol: 'cloudy' },
-          tomorrow: { temp: 3, symbol: 'rain' }
+          days: [
+            { temp: 5, symbol: 'cloudy', label: 'today' },
+            { temp: 3, symbol: 'rain', label: 'tomorrow' },
+            { temp: 4, symbol: 'cloudy', label: 'day2' },
+            { temp: 2, symbol: 'rain', label: 'day3' }
+          ]
         });
       } finally {
         setWeatherLoading(false);
@@ -403,9 +408,9 @@ const GuestWelcome = () => {
         </div>
       </div>
 
-      {/* Vejr sektion - data fra Yr.no (Met Norway) */}
+      {/* Vejr sektion - data fra Yr.no (Met Norway) - 4 dage */}
       <div className="bg-gray-50 py-4 px-6">
-        <div className="max-w-4xl mx-auto flex justify-center gap-8">
+        <div className="max-w-4xl mx-auto flex justify-center gap-4 sm:gap-8 overflow-x-auto">
           {weatherLoading ? (
             <div className="flex items-center gap-2 text-gray-500">
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -413,31 +418,31 @@ const GuestWelcome = () => {
             </div>
           ) : weather ? (
             <>
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const TodayIcon = getWeatherIcon(weather.today.symbol);
-                  return <TodayIcon className="h-8 w-8 text-gray-500" />;
-                })()}
-                <div>
-                  <p className="text-xs text-gray-500 uppercase">
-                    {language === 'da' ? 'I dag' : language === 'de' ? 'Heute' : 'Today'}
-                  </p>
-                  <p className="text-lg font-semibold text-gray-800">{weather.today.temp}°C</p>
-                </div>
-              </div>
-              <div className="w-px bg-gray-300" />
-              <div className="flex items-center gap-3">
-                {(() => {
-                  const TomorrowIcon = getWeatherIcon(weather.tomorrow.symbol);
-                  return <TomorrowIcon className="h-8 w-8 text-blue-500" />;
-                })()}
-                <div>
-                  <p className="text-xs text-gray-500 uppercase">
-                    {language === 'da' ? 'I morgen' : language === 'de' ? 'Morgen' : 'Tomorrow'}
-                  </p>
-                  <p className="text-lg font-semibold text-gray-800">{weather.tomorrow.temp}°C</p>
-                </div>
-              </div>
+              {weather.days.map((day, index) => {
+                const WeatherIcon = getWeatherIcon(day.symbol);
+                const getDayLabel = (label: string) => {
+                  if (label === 'today') return language === 'da' ? 'I dag' : language === 'de' ? 'Heute' : 'Today';
+                  if (label === 'tomorrow') return language === 'da' ? 'I morgen' : language === 'de' ? 'Morgen' : 'Tomorrow';
+                  // For dag 2 og 3, vis ugedag
+                  const date = new Date();
+                  date.setDate(date.getDate() + index);
+                  return date.toLocaleDateString(
+                    language === 'da' ? 'da-DK' : language === 'de' ? 'de-DE' : 'en-GB',
+                    { weekday: 'short' }
+                  );
+                };
+                
+                return (
+                  <div key={index} className="flex items-center gap-2 sm:gap-3">
+                    {index > 0 && <div className="w-px h-10 bg-gray-300 hidden sm:block" />}
+                    <WeatherIcon className={`h-6 w-6 sm:h-8 sm:w-8 ${index === 0 ? 'text-amber-500' : 'text-gray-500'}`} />
+                    <div className="text-center sm:text-left">
+                      <p className="text-xs text-gray-500 uppercase">{getDayLabel(day.label)}</p>
+                      <p className="text-base sm:text-lg font-semibold text-gray-800">{day.temp}°C</p>
+                    </div>
+                  </div>
+                );
+              })}
             </>
           ) : null}
         </div>
