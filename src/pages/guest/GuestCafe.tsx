@@ -148,12 +148,15 @@ const GuestCafe = () => {
       if (offersData) setOffers(offersData);
 
       // Hent ordrer for denne booking
-      const { data: ordersData } = await supabase
+      console.log('🔍 Henter café ordrer for booking_id:', guest.bookingId, typeof guest.bookingId);
+      const { data: ordersData, error: ordersError } = await supabase
         .from('cafe_orders')
         .select('*')
         .eq('booking_id', guest.bookingId)
         .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
+      
+      console.log('📦 Ordrer hentet:', ordersData, 'Error:', ordersError);
       
       if (ordersData) {
         const now = new Date();
