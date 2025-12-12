@@ -279,19 +279,35 @@ const GuestPower = () => {
   // HANDLERS
   // ============================================
 
-  // Søg efter ledige målere
-  const handleMeterSearch = (query: string) => {
+  // Søg efter ledige målere via portal-api (samme logik som main system)
+  const handleMeterSearch = async (query: string) => {
     setMeterSearch(query);
     if (query.length > 0) {
       setIsSearching(true);
-      // Simuler søgning - i produktion: kald edge function
-      setTimeout(() => {
-        const results = mockAvailableMeters.filter(m => 
-          m.meter_number.includes(query)
+      try {
+        const response = await fetch(
+          `${MAIN_SUPABASE_URL}/functions/v1/portal-api?action=search-meters&query=${encodeURIComponent(query)}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${MAIN_ANON_KEY}`,
+            },
+          }
         );
-        setSearchResults(results);
+        const result = await response.json();
+        if (result.success) {
+          setSearchResults(result.meters || []);
+        } else {
+          console.error('Meter search error:', result.error);
+          setSearchResults([]);
+        }
+      } catch (error) {
+        console.error('Meter search error:', error);
+        setSearchResults([]);
+      } finally {
         setIsSearching(false);
-      }, 300);
+      }
     } else {
       setSearchResults([]);
     }
