@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useGuest } from '@/contexts/GuestContext';
+import { supabase } from '@/lib/supabase';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -279,39 +280,92 @@ const GuestPower = () => {
   // HANDLERS
   // ============================================
 
-  // Søg efter ledige målere via portal-api (samme logik som main system)
-  const handleMeterSearch = async (query: string) => {
-    setMeterSearch(query);
-    if (query.length > 0) {
-      setIsSearching(true);
-      try {
-        const response = await fetch(
-          `${MAIN_SUPABASE_URL}/functions/v1/portal-api?action=search-meters&query=${encodeURIComponent(query)}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${MAIN_ANON_KEY}`,
-            },
-          }
-        );
-        const result = await response.json();
-        if (result.success) {
-          setSearchResults(result.meters || []);
-        } else {
-          console.error('Meter search error:', result.error);
-          setSearchResults([]);
-        }
-      } catch (error) {
-        console.error('Meter search error:', error);
-        setSearchResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    } else {
+  // Søg efter ledige målere - SAMME logik som VaelgMaaler.tsx i main system
+  const searchMeters = useCallback(async (query: string) => {
+    if (!query.trim()) {
       setSearchResults([]);
+      return;
     }
+
+    setIsSearching(true);
+    try {
+      // 1. Hent målere der matcher søgning og er markeret ledige
+      const { data: meters, error } = await (supabase as any)
+        .from('power_meters')
+        .select('id, meter_number, spot_number, is_online')
+        .eq('is_available', true)
+        .ilike('meter_number', `%${query}%`)
+        .limit(10);
+
+      if (error) throw error;
+
+      // 2. HYTTE-FILTER: Hent alle målere der er låst til hytter
+      const { data: cabinMeters } = await (supabase as any)
+        .from('cabins')
+        .select('meter_id')
+        .not('meter_id', 'is', null);
+
+      const cabinMeterIds = new Set(cabinMeters?.map((c: any) => c.meter_id) || []);
+
+      // 3. Hent alle tildelte målere fra kunder (checked ind)
+      const { data: seasonalCustomers } = await (supabase as any)
+        .from('seasonal_customers')
+        .select('meter_id')
+        .eq('checked_in', true)
+        .not('meter_id', 'is', null);
+
+      const { data: regularCustomers } = await (supabase as any)
+        .from('regular_customers')
+        .select('meter_id')
+        .eq('checked_in', true)
+        .not('meter_id', 'is', null);
+
+      // 4. Hent ekstra målere (tilknyttet bookinger)
+      const { data: extraMeters } = await (supabase as any)
+        .from('booking_extra_meters')
+        .select('meter_id');
+
+      // 5. Opret set af tildelte måler IDs
+      const assignedMeterIds = new Set([
+        ...(seasonalCustomers?.map((c: any) => c.meter_id) || []),
+        ...(regularCustomers?.map((c: any) => c.meter_id) || []),
+        ...(extraMeters?.map((m: any) => m.meter_id) || []),
+      ]);
+
+      // 6. Filtrer: kun online, ikke tildelt, ikke hytte-måler
+      const availableMeters = (meters || [])
+        .filter((meter: any) => {
+          if (assignedMeterIds.has(meter.meter_number)) return false;
+          if (cabinMeterIds.has(meter.meter_number)) return false;
+          return meter.is_online === true;
+        })
+        .map((meter: any) => ({
+          id: meter.id,
+          meter_number: meter.meter_number,
+          spot_number: meter.spot_number,
+        }));
+
+      setSearchResults(availableMeters);
+    } catch (error) {
+      console.error('Meter search error:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  // Debounce søgning
+  const handleMeterSearch = (query: string) => {
+    setMeterSearch(query);
   };
+
+  // Trigger søgning med debounce
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      searchMeters(meterSearch);
+    }, 300);
+    return () => clearTimeout(timeoutId);
+  }, [meterSearch, searchMeters]);
 
   // Bekræft valg af måler - kalder assign-meter Edge Function
   const handleConfirmMeter = async () => {
