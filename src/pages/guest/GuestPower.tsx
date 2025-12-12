@@ -175,46 +175,47 @@ const GuestPower = () => {
   const [meterStates, setMeterStates] = useState<Record<string, boolean>>({});
   const [showPackages, setShowPackages] = useState(false);
 
-  // Hent strømdata fra database ved mount
-  useEffect(() => {
-    const fetchPowerData = async () => {
-      const bookingNummer = (guest as any).bookingId || (guest as any).booking_nummer;
-      
-      if (!bookingNummer || !guest.checkedIn) {
-        setIsLoadingData(false);
-        return;
-      }
+  // Hent strømdata fra database - kan kaldes ved mount og efter målervalg
+  const fetchPowerData = async () => {
+    const bookingNummer = (guest as any).bookingId || (guest as any).booking_nummer;
+    
+    if (!bookingNummer || !guest.checkedIn) {
+      setIsLoadingData(false);
+      return;
+    }
 
-      try {
-        const response = await fetch(`${MAIN_SUPABASE_URL}/functions/v1/get-guest-power-data`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${MAIN_ANON_KEY}`,
-          },
-          body: JSON.stringify({ booking_nummer: bookingNummer }),
+    try {
+      const response = await fetch(`${MAIN_SUPABASE_URL}/functions/v1/get-guest-power-data`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${MAIN_ANON_KEY}`,
+        },
+        body: JSON.stringify({ booking_nummer: bookingNummer }),
+      });
+
+      const data = await response.json();
+      console.log('Power data from DB:', data);
+
+      if (!data.error) {
+        setPowerData({
+          hasMeter: data.hasMeter,
+          hasPackage: data.hasPackage,
+          meterId: data.meterId,
+          powerPackage: data.powerPackage,
+          meters: data.meters || [],
+          packages: data.packages || [],
         });
-
-        const data = await response.json();
-        console.log('Power data from DB:', data);
-
-        if (!data.error) {
-          setPowerData({
-            hasMeter: data.hasMeter,
-            hasPackage: data.hasPackage,
-            meterId: data.meterId,
-            powerPackage: data.powerPackage,
-            meters: data.meters || [],
-            packages: data.packages || [],
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching power data:', error);
-      } finally {
-        setIsLoadingData(false);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching power data:', error);
+    } finally {
+      setIsLoadingData(false);
+    }
+  };
 
+  // Hent ved mount
+  useEffect(() => {
     fetchPowerData();
   }, [guest]);
 
@@ -392,12 +393,8 @@ const GuestPower = () => {
       
       if (result.success) {
         toast.success(`Måler ${selectedMeter.meter_number} er nu tilknyttet!`);
-        // Opdater powerData med den nye måler
-        setPowerData(prev => prev ? {
-          ...prev,
-          hasMeter: true,
-          meterId: selectedMeter.meter_number,
-        } : null);
+        // Genindlæs power data for at få komplet måler-info
+        await fetchPowerData();
       } else {
         throw new Error(result.error || 'Kunne ikke tildele måler');
       }
