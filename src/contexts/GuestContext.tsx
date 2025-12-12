@@ -1,4 +1,6 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+
+const SUPABASE_URL = 'https://jkmqliztlhmfyejhmuil.supabase.co';
 
 export type Language = 'da' | 'en' | 'de' | 'nl';
 export type BookingType = 'camping' | 'cabin' | 'seasonal';
@@ -219,6 +221,39 @@ export const GuestProvider = ({ children }: { children: ReactNode }) => {
   const storedGuest = getStoredGuest();
   const [language, setLanguage] = useState<Language>(storedGuest.language);
   const [guest, setGuest] = useState<GuestData>(storedGuest);
+
+  // Auto-reload guest data fra backend ved page load
+  useEffect(() => {
+    const reloadGuestData = async () => {
+      // Tjek om vi har gemt booking info og magic token
+      const storedToken = sessionStorage.getItem('guestMagicToken');
+      const bookingId = storedGuest.bookingId;
+      
+      if (!bookingId || !storedToken) return;
+      
+      try {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/validate-magic-link`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ booking_id: bookingId, token: storedToken }),
+        });
+        
+        const data = await response.json();
+        
+        if (data?.valid && data?.guest) {
+          // Opdater guest data med friske data fra backend
+          setGuest(data.guest);
+          setLanguage(data.guest.language);
+          sessionStorage.setItem('guestData', JSON.stringify(data.guest));
+          console.log('Guest data auto-reloaded from backend');
+        }
+      } catch (err) {
+        console.error('Could not auto-reload guest data:', err);
+      }
+    };
+    
+    reloadGuestData();
+  }, []); // Kun ved mount
 
   // Gem guest data i sessionStorage når det ændres
   const setGuestData = (newGuest: GuestData) => {

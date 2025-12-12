@@ -29,6 +29,8 @@ const MagicLink = () => {
         const data = await response.json();
 
         if (data?.valid && data?.guest) {
+          // Gem magic token til auto-reload ved page refresh
+          sessionStorage.setItem('guestMagicToken', token);
           // Update GuestContext with real guest data
           setGuestData(data.guest);
           navigate('/guest');
