@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useGuest } from '../contexts/GuestContext';
@@ -9,12 +9,12 @@ const MagicLink = () => {
   const { bookingId, token } = useParams();
   const navigate = useNavigate();
   const { setGuestData } = useGuest();
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const validateToken = async () => {
       if (!bookingId || !token) {
-        setError('Ugyldigt link - manglende booking eller token');
+        // Manglende parametre = send til "tak for ophold" siden
+        navigate('/guest/departed');
         return;
       }
 
@@ -35,34 +35,21 @@ const MagicLink = () => {
           setGuestData(data.guest);
           navigate('/guest');
         } else {
-          setError(data.error || 'Ugyldigt eller udløbet link');
+          // Ugyldigt link = kunde er sandsynligvis udtjekket (GDPR slettet)
+          // Send til "tak for ophold" siden
+          navigate('/guest/departed');
         }
       } catch (err) {
         console.error('Error validating token:', err);
-        setError(err instanceof Error ? err.message : 'Der opstod en fejl under login');
+        // Ved fejl, send også til departed siden
+        navigate('/guest/departed');
       }
     };
 
     validateToken();
   }, [bookingId, token, navigate, setGuestData]);
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <div className="text-red-500 text-xl">⚠️ Fejl</div>
-          <p className="text-muted-foreground">{error}</p>
-          <button 
-            onClick={() => navigate('/')}
-            className="text-blue-500 hover:underline"
-          >
-            Tilbage til start
-          </button>
-        </div>
-      </div>
-    );
-  }
-
+  // Vis kun loading mens vi validerer
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background">
       <div className="text-center space-y-4">
