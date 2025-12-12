@@ -16,6 +16,7 @@ import GuestCabin from "./pages/guest/GuestCabin";
 import GuestAttractions from "./pages/guest/GuestAttractions";
 import GuestPool from "./pages/guest/GuestPool";
 import GuestPlayground from "./pages/guest/GuestPlayground";
+import GuestDeparted from "./pages/guest/GuestDeparted";
 import PaymentSuccess from "./pages/guest/PaymentSuccess";
 import AdminEvents from "./pages/admin/AdminEvents";
 import AdminBakery from "./pages/admin/AdminBakery";
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="cabin" element={<GuestCabin />} />
               <Route path="pool" element={<GuestPool />} />
               <Route path="playground" element={<GuestPlayground />} />
+              <Route path="departed" element={<GuestDeparted />} />
             </Route>
             {/* Payment routes */}
             <Route path="/betaling-gennemfoert" element={<PaymentSuccess />} />

@@ -32,23 +32,24 @@ interface GuestContextType {
   t: (key: string) => string;
 }
 
-const mockGuest: GuestData = {
-  firstName: "Hans",
-  lastName: "Hansen",
-  email: "hans@example.com",
+// Default guest = IKKE logget ind - ingen adgang til systemet
+const emptyGuest: GuestData = {
+  firstName: "",
+  lastName: "",
+  email: "",
   language: "da",
   country: "DK",
-  arrivalDate: "2025-12-10",
-  departureDate: "2025-12-17",
-  checkedIn: true,
-  checkedOut: false,
+  arrivalDate: "",
+  departureDate: "",
+  checkedIn: false,
+  checkedOut: true, // Behandles som udtjekket = ingen adgang
   bookingType: "camping",
-  previousVisits: 2,
+  previousVisits: 0,
   meterId: null,
-  spotNumber: "A01",
-  bookingId: 12345,
-  booking_nummer: 12345,
-  phone: "+45 12345678"
+  spotNumber: "",
+  bookingId: undefined,
+  booking_nummer: undefined,
+  phone: ""
 };
 
 const translations: Record<Language, Record<string, string>> = {
@@ -215,7 +216,7 @@ export const GuestProvider = ({ children }: { children: ReactNode }) => {
     } catch (e) {
       console.error('Kunne ikke læse gemt gæstedata:', e);
     }
-    return mockGuest;
+    return emptyGuest;
   };
 
   const storedGuest = getStoredGuest();
