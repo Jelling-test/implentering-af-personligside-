@@ -222,20 +222,20 @@ export const GuestProvider = ({ children }: { children: ReactNode }) => {
   const [language, setLanguage] = useState<Language>(storedGuest.language);
   const [guest, setGuest] = useState<GuestData>(storedGuest);
 
-  // Auto-reload guest data fra backend ved page load
+  // Auto-reload guest data fra backend ved HVER page load
+  // Bruger get-guest-status API der kun kræver bookingId (ikke magic token)
   useEffect(() => {
     const reloadGuestData = async () => {
-      // Tjek om vi har gemt booking info og magic token
-      const storedToken = sessionStorage.getItem('guestMagicToken');
       const bookingId = storedGuest.bookingId;
       
-      if (!bookingId || !storedToken) return;
+      // Hvis ingen bookingId, er bruger ikke logget ind
+      if (!bookingId) return;
       
       try {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/validate-magic-link`, {
+        const response = await fetch(`${SUPABASE_URL}/functions/v1/get-guest-status`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ booking_id: bookingId, token: storedToken }),
+          body: JSON.stringify({ booking_id: bookingId }),
         });
         
         const data = await response.json();
@@ -245,10 +245,10 @@ export const GuestProvider = ({ children }: { children: ReactNode }) => {
           setGuest(data.guest);
           setLanguage(data.guest.language);
           sessionStorage.setItem('guestData', JSON.stringify(data.guest));
-          console.log('Guest data auto-reloaded from backend');
+          console.log('Guest data refreshed from backend');
         }
       } catch (err) {
-        console.error('Could not auto-reload guest data:', err);
+        console.error('Could not refresh guest data:', err);
       }
     };
     
