@@ -44,6 +44,13 @@ interface Offer {
   image_url?: string;
   visible_from?: string;
   visible_to?: string;
+  execution_date?: string;
+  order_deadline?: string;
+  cancel_deadline?: string;
+  eat_in_capacity_per_slot?: number;
+  takeaway_capacity_per_slot?: number;
+  total_max_orders?: number;
+  timeslots?: string[];
   is_active: boolean;
 }
 
@@ -85,6 +92,7 @@ interface CafeOrder {
   quantity: number;
   dining_option?: string;
   execution_date?: string;
+  timeslot?: string;
   total: number;
   status: string;
   created_at: string;
@@ -111,6 +119,8 @@ const GuestCafe = () => {
   const [selectedOffer, setSelectedOffer] = useState<Offer | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [diningOption, setDiningOption] = useState<'eat_in' | 'takeaway'>('eat_in');
+  const [selectedTimeslot, setSelectedTimeslot] = useState<string>('');
+  const [allOrdersForOffer, setAllOrdersForOffer] = useState<CafeOrder[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -241,7 +251,7 @@ const GuestCafe = () => {
   };
 
   const handleOrder = async () => {
-    if (!selectedOffer) return;
+    if (!selectedOffer || !selectedTimeslot) return;
     setSubmitting(true);
     try {
       const orderNumber = `C${Date.now().toString().slice(-8)}`;
@@ -257,9 +267,10 @@ const GuestCafe = () => {
           offer_name: getOfferText(selectedOffer),
           quantity,
           dining_option: diningOption,
-          execution_date: selectedOffer.visible_to ? new Date(selectedOffer.visible_to).toISOString().split('T')[0] : null,
+          timeslot: selectedTimeslot,
+          execution_date: selectedOffer.execution_date || (selectedOffer.visible_to ? new Date(selectedOffer.visible_to).toISOString().split('T')[0] : null),
           total: selectedOffer.price * quantity,
-          status: 'pending'
+          status: 'confirmed'
         });
       
       if (error) throw error;
@@ -268,6 +279,7 @@ const GuestCafe = () => {
       setOrderDialogOpen(false);
       setSelectedOffer(null);
       setQuantity(1);
+      setSelectedTimeslot('');
       fetchData();
     } catch (err) {
       console.error('Order error:', err);
@@ -296,8 +308,50 @@ const GuestCafe = () => {
   };
 
   const canCancelOrder = (order: CafeOrder) => {
-    // Kan altid afbestille pending ordrer
-    return order.status === 'pending';
+    // Kun hvis status er pending eller confirmed
+    if (order.status !== 'pending' && order.status !== 'confirmed') return false;
+    
+    // Find tilhørende tilbud for at tjekke cancel_deadline
+    const offer = offers.find(o => o.id === order.offer_id);
+    if (offer?.cancel_deadline) {
+      const deadline = new Date(offer.cancel_deadline);
+      if (new Date() > deadline) return false;
+    }
+    return true;
+  };
+
+  const getAvailableTimeslots = (offer: Offer) => {
+    const defaultSlots = ['17:00', '17:15', '17:30', '17:45', '18:00', '18:15', '18:30', '18:45', '19:00', '19:15'];
+    const slots = offer.timeslots || defaultSlots;
+    const eatInCap = offer.eat_in_capacity_per_slot || 12;
+    const takeawayCap = offer.takeaway_capacity_per_slot || 20;
+    
+    return slots.filter(slot => {
+      const ordersForSlot = allOrdersForOffer.filter(o => o.timeslot === slot && o.status !== 'cancelled');
+      const eatInCount = ordersForSlot.filter(o => o.dining_option === 'eat_in').reduce((sum, o) => sum + o.quantity, 0);
+      const takeawayCount = ordersForSlot.filter(o => o.dining_option === 'takeaway').reduce((sum, o) => sum + o.quantity, 0);
+      
+      if (diningOption === 'eat_in') {
+        return eatInCount + quantity <= eatInCap;
+      } else {
+        return takeawayCount + quantity <= takeawayCap;
+      }
+    });
+  };
+
+  const isOfferSoldOut = (offer: Offer) => {
+    if (!offer.total_max_orders) return false;
+    const totalOrders = allOrdersForOffer.filter(o => o.status !== 'cancelled').reduce((sum, o) => sum + o.quantity, 0);
+    return totalOrders >= offer.total_max_orders;
+  };
+
+  const fetchOrdersForOffer = async (offerId: string) => {
+    const { data } = await supabase
+      .from('cafe_orders')
+      .select('*')
+      .eq('offer_id', offerId)
+      .neq('status', 'cancelled');
+    if (data) setAllOrdersForOffer(data);
   };
 
   const todayStatus = getTodayStatus();
@@ -337,6 +391,9 @@ const GuestCafe = () => {
               <CardTitle className="text-base flex items-center gap-2">
                 <ShoppingBag className="h-5 w-5 text-amber-600" />
                 {getText('Mine bestillinger', 'My orders', 'Meine Bestellungen')}
+                <span className="text-sm font-normal text-gray-500">
+                  ({guest.firstName} #{guest.bookingId})
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -345,7 +402,7 @@ const GuestCafe = () => {
                   <div>
                     <p className="font-medium">{order.quantity}× {order.offer_name}</p>
                     <p className="text-sm text-gray-500">
-                      {order.execution_date} • {order.dining_option === 'eat_in' ? '🍽️' : '📦'} • {order.total} kr
+                      {order.execution_date} {order.timeslot && `kl. ${order.timeslot}`} • {order.dining_option === 'eat_in' ? '🍽️' : '📦'} • {order.total} kr
                     </p>
                     <p className="text-xs text-green-600 font-medium mt-1">
                       ✓ {getText('Bekræftet', 'Confirmed', 'Bestätigt')}
@@ -442,11 +499,17 @@ const GuestCafe = () => {
                             return (
                             <Dialog open={orderDialogOpen && selectedOffer?.id === offer.id} onOpenChange={(open) => {
                               setOrderDialogOpen(open);
-                              if (open) setSelectedOffer(offer);
+                              if (open) {
+                                setSelectedOffer(offer);
+                                setSelectedTimeslot('');
+                                fetchOrdersForOffer(offer.id);
+                              }
                             }}>
                               <DialogTrigger asChild>
-                                <Button size="sm" className="mt-2">
-                                  {getText('Bestil', 'Order', 'Bestellen')}
+                                <Button size="sm" className="mt-2" disabled={myOrders.length > 0}>
+                                  {myOrders.length > 0 
+                                    ? getText('Du har allerede en bestilling', 'You already have an order', 'Sie haben bereits eine Bestellung')
+                                    : getText('Bestil', 'Order', 'Bestellen')}
                                 </Button>
                               </DialogTrigger>
                             <DialogContent>
@@ -476,11 +539,40 @@ const GuestCafe = () => {
                                   </RadioGroup>
                                 </div>
 
+                                <div>
+                                  <Label>{getText('Vælg tidspunkt', 'Select time', 'Zeit wählen')}</Label>
+                                  <select 
+                                    value={selectedTimeslot} 
+                                    onChange={e => setSelectedTimeslot(e.target.value)}
+                                    className="w-full mt-1 p-2 border rounded-md"
+                                  >
+                                    <option value="">{getText('Vælg tidspunkt...', 'Select time...', 'Zeit wählen...')}</option>
+                                    {getAvailableTimeslots(offer).map(slot => (
+                                      <option key={slot} value={slot}>{slot}</option>
+                                    ))}
+                                  </select>
+                                  {getAvailableTimeslots(offer).length === 0 && (
+                                    <p className="text-sm text-red-500 mt-1">
+                                      {getText('Ingen ledige tidspunkter', 'No available times', 'Keine verfügbaren Zeiten')}
+                                    </p>
+                                  )}
+                                </div>
+
                                 <div className="p-3 bg-gray-100 rounded-lg">
                                   <p className="font-bold text-lg">Total: {offer.price * quantity} kr</p>
                                 </div>
 
-                                <Button onClick={handleOrder} disabled={submitting} className="w-full">
+                                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                  <p className="text-sm text-amber-800">
+                                    ⚠️ {getText(
+                                      `Husk: En bestilling er bindende med det samme. Du kan annullere indtil ${offer.cancel_deadline ? new Date(offer.cancel_deadline).toLocaleString('da-DK', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'deadline'}.`,
+                                      `Note: Your order is binding immediately. You can cancel until ${offer.cancel_deadline ? new Date(offer.cancel_deadline).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'deadline'}.`,
+                                      `Hinweis: Ihre Bestellung ist sofort verbindlich. Sie können bis ${offer.cancel_deadline ? new Date(offer.cancel_deadline).toLocaleString('de-DE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Frist'} stornieren.`
+                                    )}
+                                  </p>
+                                </div>
+
+                                <Button onClick={handleOrder} disabled={submitting || !selectedTimeslot} className="w-full">
                                   {submitting ? 'Bestiller...' : getText('Bekræft bestilling', 'Confirm order', 'Bestellung bestätigen')}
                                 </Button>
                               </div>
