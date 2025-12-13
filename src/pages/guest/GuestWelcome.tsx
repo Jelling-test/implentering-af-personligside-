@@ -382,6 +382,7 @@ const GuestWelcome = () => {
 
           <p className="text-white text-xl sm:text-2xl font-light">
             {getWelcomeMessage()}, {guest.firstName}!
+            <span className="text-white/60 text-base sm:text-lg ml-2">(#{guest.bookingId})</span>
           </p>
         </div>
       </div>

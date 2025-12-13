@@ -432,6 +432,8 @@ const GuestBakery = () => {
         title={t('orderBread')}
         subtitle={language === 'da' ? 'Friske morgenbrød hver dag' : 'Fresh bread every morning'}
         image={HEADER_IMAGE}
+        guestName={guest.firstName}
+        bookingId={guest.bookingId}
       />
       
       {/* Teal info bar */}

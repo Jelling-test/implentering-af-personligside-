@@ -1139,6 +1139,8 @@ const GuestPower = () => {
         title={t('powerManagement')}
         subtitle={`${meters.length} ${language === 'da' ? 'elmålere tilknyttet' : 'meters assigned'}`}
         image={HEADER_IMAGE}
+        guestName={guest.firstName}
+        bookingId={guest.bookingId}
       />
       
       {/* Teal info bar */}

@@ -8,9 +8,11 @@ interface PageHeaderProps {
   image: string;
   backTo?: string;
   children?: ReactNode;
+  guestName?: string;
+  bookingId?: string | number;
 }
 
-export const PageHeader = ({ title, subtitle, image, backTo = '/guest', children }: PageHeaderProps) => {
+export const PageHeader = ({ title, subtitle, image, backTo = '/guest', children, guestName, bookingId }: PageHeaderProps) => {
   return (
     <div className="relative h-48 sm:h-56 bg-cover bg-center" style={{ backgroundImage: `url('${image}')` }}>
       {/* Gradient overlay */}
@@ -29,6 +31,11 @@ export const PageHeader = ({ title, subtitle, image, backTo = '/guest', children
       <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-8">
         <h1 className="text-white text-3xl sm:text-4xl font-serif font-light mb-1">
           {title}
+          {guestName && bookingId && (
+            <span className="text-white/70 text-lg sm:text-xl ml-3 font-normal">
+              {guestName} (#{bookingId})
+            </span>
+          )}
         </h1>
         {subtitle && (
           <p className="text-white/80 text-sm sm:text-base">
